@@ -11,7 +11,8 @@ function NavBar() {
         <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
           <a href="#" className="hover:text-gray-900">Trang chủ</a>
           <a href="#categories" className="hover:text-gray-900">Danh mục</a>
-          <a href="#featured" className="hover:text-gray-900">Nổi bật</a>
+          <a href="#featured?category=laptop" className="hover:text-gray-900">Laptop</a>
+          <a href="#featured?category=phone" className="hover:text-gray-900">Điện thoại</a>
           <a href="#newsletter" className="hover:text-gray-900">Liên hệ</a>
         </nav>
         <div className="flex items-center gap-3">
@@ -28,12 +29,12 @@ function Hero() {
     <section className="bg-gradient-to-b from-brand-50 to-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 grid md:grid-cols-2 gap-10 items-center">
         <div>
-          <span className="inline-block text-xs font-semibold tracking-widest text-brand-700 bg-brand-100 rounded px-2 py-1">NEW SEASON</span>
+          <span className="inline-block text-xs font-semibold tracking-widest text-brand-700 bg-brand-100 rounded px-2 py-1">TECH STORE</span>
           <h1 className="mt-4 text-4xl sm:text-5xl font-bold leading-tight">
-            Mua sắm hiện đại cho mọi phong cách
+            Laptop & Điện thoại chính hãng
           </h1>
           <p className="mt-4 text-gray-600">
-            Khám phá bộ sưu tập mới với giá tốt. Giao hàng nhanh, đổi trả dễ dàng.
+            Khám phá bộ sưu tập laptop và điện thoại mới nhất. Giá tốt, giao hàng nhanh, đổi trả dễ dàng.
           </p>
           <div className="mt-6 flex gap-3">
             <a href="#featured" className="inline-flex items-center justify-center rounded bg-brand-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-brand-700">Mua ngay</a>
@@ -51,30 +52,31 @@ function Hero() {
 }
 
 function Categories() {
-  const items = [
-    { title: 'Thời trang', color: 'bg-pink-100', dot: 'bg-pink-400' },
-    { title: 'Điện tử', color: 'bg-blue-100', dot: 'bg-blue-400' },
-    { title: 'Gia dụng', color: 'bg-emerald-100', dot: 'bg-emerald-400' },
-    { title: 'Làm đẹp', color: 'bg-purple-100', dot: 'bg-purple-400' },
-    { title: 'Thể thao', color: 'bg-orange-100', dot: 'bg-orange-400' },
-    { title: 'Sách', color: 'bg-yellow-100', dot: 'bg-yellow-400' }
-  ];
+  const [categories, setCategories] = React.useState([
+    { category: 'laptop', title: 'Laptop', color: 'bg-blue-100', dot: 'bg-blue-500', icon: '💻' },
+    { category: 'phone', title: 'Điện thoại', color: 'bg-purple-100', dot: 'bg-purple-500', icon: '📱' }
+  ]);
 
   return (
     <section id="categories" className="py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between">
-          <h2 className="text-2xl font-semibold">Danh mục phổ biến</h2>
-          <a className="text-sm text-brand-700 hover:underline" href="#">Xem tất cả</a>
+          <h2 className="text-2xl font-semibold">Danh mục sản phẩm</h2>
+          <a className="text-sm text-brand-700 hover:underline" href="#featured">Xem tất cả</a>
         </div>
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {items.map((c) => (
-            <div key={c.title} className={`group relative overflow-hidden rounded-xl ${c.color} p-5 border`}> 
-              <div className={`absolute top-3 right-3 h-3 w-3 rounded-full ${c.dot}`} />
-              <div className="h-24 rounded-lg bg-white/70" />
-              <div className="mt-3 font-medium">{c.title}</div>
-              <button className="mt-1 text-xs text-gray-500 group-hover:text-gray-700">Mua ngay →</button>
-            </div>
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 max-w-3xl">
+          {categories.map((c) => (
+            <a
+              key={c.category}
+              href={`#featured?category=${c.category}`}
+              className={`group relative overflow-hidden rounded-xl ${c.color} p-8 border hover:shadow-lg transition cursor-pointer`}
+            >
+              <div className={`absolute top-4 right-4 h-4 w-4 rounded-full ${c.dot}`} />
+              <div className="text-6xl mb-4">{c.icon}</div>
+              <div className="text-2xl font-bold mb-2">{c.title}</div>
+              <div className="text-sm text-gray-600 mb-4">Khám phá các sản phẩm {c.title.toLowerCase()} mới nhất</div>
+              <div className="text-sm font-medium text-brand-700 group-hover:underline">Xem ngay →</div>
+            </a>
           ))}
         </div>
       </div>
@@ -86,13 +88,25 @@ function Featured() {
   const [products, setProducts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [selectedCategory, setSelectedCategory] = React.useState(null);
+
+  React.useEffect(() => {
+    // Get category from URL hash if present
+    const hash = window.location.hash;
+    const categoryMatch = hash.match(/category=(\w+)/);
+    const category = categoryMatch ? categoryMatch[1] : null;
+    setSelectedCategory(category);
+  }, []);
 
   React.useEffect(() => {
     async function fetchProducts() {
       try {
         setLoading(true);
         setError('');
-        const res = await fetch('http://localhost:3001/api/products');
+        const url = selectedCategory 
+          ? `http://localhost:3001/api/products?category=${selectedCategory}`
+          : 'http://localhost:3001/api/products';
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to load products');
         const data = await res.json();
         setProducts(data);
@@ -103,7 +117,7 @@ function Featured() {
       }
     }
     fetchProducts();
-  }, []);
+  }, [selectedCategory]);
 
   return (
     <section id="featured" className="py-14 bg-gray-50">

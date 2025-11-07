@@ -11,15 +11,38 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Example: featured products (static mock)
-app.get('/api/featured', (req, res) => {
-  const products = Array.from({ length: 8 }).map((_, i) => ({
-    id: i + 1,
-    name: `Sản phẩm #${i + 1}`,
-    price: 199000 + i * 10000,
-    brand: 'BrandX',
-  }));
-  res.json(products);
+// Products endpoints
+app.get('/api/products', async (req, res) => {
+  const { category, limit = 50 } = req.query; // optional: 'laptop' | 'phone'
+  try {
+    const params = [];
+    let sql = 'SELECT id, name, price, brand, category, image_url FROM products';
+    if (category) {
+      sql += ' WHERE category = ?';
+      params.push(category);
+    }
+    sql += ' ORDER BY id DESC LIMIT ?';
+    params.push(Number(limit));
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (error) {
+    console.error('MySQL error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/api/products/:category', async (req, res) => {
+  const { category } = req.params; // 'laptop' | 'phone'
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, name, price, brand, category, image_url FROM products WHERE category = ? ORDER BY id DESC LIMIT 50',
+      [category]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('MySQL error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Brands endpoints
@@ -55,18 +78,6 @@ app.get('/api/brands/:category', async (req, res) => {
   }
 });
 
-// Example: fetch products from MySQL
-app.get('/api/products', async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      'SELECT id, name, price, brand FROM products ORDER BY id DESC LIMIT 50'
-    );
-    res.json(rows);
-  } catch (error) {
-    console.error('MySQL error:', error);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
