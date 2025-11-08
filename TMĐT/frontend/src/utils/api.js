@@ -97,7 +97,7 @@ export const authAPI = {
   },
   
   getMe: async () => {
-    const res = await authFetch(`${API_BASE}/auth/me`);
+    const res = await authFetch('/auth/me');
     return res.json();
   },
 };
