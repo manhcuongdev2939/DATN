@@ -1,6 +1,15 @@
 import React from 'react';
+import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import AuthModal from './components/AuthModal';
+import CartModal from './components/CartModal';
+import ProductDetail from './components/ProductDetail';
+import Checkout from './components/Checkout';
+import Orders from './components/Orders';
+import OrderSuccess from './components/OrderSuccess';
+import UserDashboard from './components/UserDashboard';
+import { authAPI } from './utils/api';
 
-function NavBar() {
+function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -17,7 +26,35 @@ function NavBar() {
         </nav>
         <div className="flex items-center gap-3">
           <input className="hidden md:block w-64 rounded border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Tìm sản phẩm..." />
-          <button className="rounded bg-brand-600 text-white px-3 py-1.5 text-sm hover:bg-brand-700">Đăng nhập</button>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={onCartClick}
+                className="relative rounded bg-gray-100 px-3 py-1.5 text-sm hover:bg-gray-200"
+              >
+                🛒 Giỏ hàng
+              </button>
+              <Link 
+                to="/dashboard"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                {user.Ten_khach_hang || user.Email}
+              </Link>
+              <button 
+                onClick={onLogout}
+                className="rounded bg-gray-200 text-gray-700 px-3 py-1.5 text-sm hover:bg-gray-300"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={onLoginClick}
+              className="rounded bg-brand-600 text-white px-3 py-1.5 text-sm hover:bg-brand-700"
+            >
+              Đăng nhập
+            </button>
+          )}
         </div>
       </div>
     </header>
@@ -163,9 +200,19 @@ function Featured() {
                 </div>
                 <div className="p-4">
                   <div className="text-sm text-gray-500">{p.brand || 'Thương hiệu'}</div>
-                  <div className="mt-1 font-medium line-clamp-2">{p.name}</div>
+                  <Link 
+                    to={`/product/${p.id}`}
+                    className="mt-1 font-medium line-clamp-2 hover:text-brand-600"
+                  >
+                    {p.name}
+                  </Link>
                   <div className="mt-2 font-semibold text-brand-700">{Number(p.price).toLocaleString('vi-VN')}₫</div>
-                  <button className="mt-3 w-full rounded bg-brand-600 text-white py-2 text-sm hover:bg-brand-700">Thêm vào giỏ</button>
+                  <Link 
+                    to={`/product/${p.id}`}
+                    className="mt-3 w-full block text-center rounded bg-brand-600 text-white py-2 text-sm hover:bg-brand-700"
+                  >
+                    Xem chi tiết
+                  </Link>
                 </div>
               </div>
             ))}
@@ -176,16 +223,62 @@ function Featured() {
   );
 }
 
-function Newsletter() {
+function Newsletter({ onSubscribe }) {
+  const [email, setEmail] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [message, setMessage] = React.useState('');
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    if (!email) {
+      setMessage('Vui lòng nhập email');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+    try {
+      const { newsletterAPI } = await import('./utils/api');
+      const result = await newsletterAPI.subscribe(email);
+      if (result.error) {
+        setMessage(result.error);
+      } else {
+        setMessage('Đăng ký thành công! Voucher đã được gửi đến email của bạn.');
+        setEmail('');
+      }
+    } catch (err) {
+      setMessage('Có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section id="newsletter" className="py-16">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center">
         <h3 className="text-2xl font-semibold">Nhận ưu đãi mỗi tuần</h3>
         <p className="mt-2 text-gray-600">Đăng ký để không bỏ lỡ voucher và bộ sưu tập mới.</p>
-        <div className="mt-6 mx-auto max-w-xl flex gap-2">
-          <input className="flex-1 rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Email của bạn" />
-          <button className="rounded bg-brand-600 text-white px-4 py-2 text-sm hover:bg-brand-700">Đăng ký</button>
-        </div>
+        <form onSubmit={handleSubscribe} className="mt-6 mx-auto max-w-xl flex gap-2">
+          <input 
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="flex-1 rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" 
+            placeholder="Email của bạn" 
+          />
+          <button 
+            type="submit"
+            disabled={loading}
+            className="rounded bg-brand-600 text-white px-4 py-2 text-sm hover:bg-brand-700 disabled:opacity-50"
+          >
+            {loading ? 'Đang xử lý...' : 'Đăng ký'}
+          </button>
+        </form>
+        {message && (
+          <div className={`mt-4 text-sm ${message.includes('thành công') ? 'text-green-600' : 'text-red-600'}`}>
+            {message}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -206,17 +299,90 @@ function Footer() {
   );
 }
 
+function HomePage({ user, onLoginClick }) {
+  return (
+    <>
+      <Hero />
+      <Categories />
+      <Featured />
+      <Newsletter onSubscribe={onLoginClick} />
+    </>
+  );
+}
+
 export default function App() {
+  const [user, setUser] = React.useState(null);
+  const [showAuthModal, setShowAuthModal] = React.useState(false);
+  const [showCartModal, setShowCartModal] = React.useState(false);
+
+  // Kiểm tra token khi component mount
+  React.useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Thử lấy thông tin user
+      authAPI.getMe()
+        .then(result => {
+          if (result.user) {
+            setUser(result.user);
+          }
+        })
+        .catch(() => {
+          // Token không hợp lệ, xóa token
+          localStorage.removeItem('token');
+        });
+    }
+  }, []);
+
+  const handleLoginSuccess = (userData) => {
+    setUser(userData);
+    setShowAuthModal(false);
+  };
+
+  const handleLogout = () => {
+    authAPI.logout();
+    setUser(null);
+  };
+
+  const handleUpdateUser = (updatedUser) => {
+    setUser(updatedUser);
+  };
+
   return (
     <div className="min-h-full flex flex-col">
-      <NavBar />
+      <NavBar 
+        user={user} 
+        onLoginClick={() => setShowAuthModal(true)}
+        onLogout={handleLogout}
+        onCartClick={() => {
+          if (!user) {
+            setShowAuthModal(true);
+          } else {
+            setShowCartModal(true);
+          }
+        }}
+      />
       <main className="flex-1">
-        <Hero />
-        <Categories />
-        <Featured />
-        <Newsletter />
+        <Routes>
+          <Route path="/" element={<HomePage user={user} onLoginClick={() => setShowAuthModal(true)} />} />
+          <Route path="/product/:id" element={<ProductDetail user={user} />} />
+          <Route path="/checkout" element={<Checkout user={user} />} />
+          <Route path="/orders" element={<Orders user={user} />} />
+          <Route path="/order-success/:id" element={<OrderSuccess />} />
+          <Route path="/dashboard" element={<UserDashboard user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />} />
+        </Routes>
       </main>
       <Footer />
+      <AuthModal 
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleLoginSuccess}
+      />
+      {user && (
+        <CartModal 
+          isOpen={showCartModal}
+          onClose={() => setShowCartModal(false)}
+        />
+      )}
     </div>
   );
 }
