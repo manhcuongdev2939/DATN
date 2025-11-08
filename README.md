@@ -1,6 +1,6 @@
 # Dự án Tốt Nghiệp - Hệ thống Thương Mại Điện Tử
 
-Dự án tốt nghiệp xây dựng hệ thống thương mại điện tử (E-commerce) đầy đủ với React và Node.js.
+Dự án tốt nghiệp xây dựng hệ thống thương mại điện tử (MCM Shop) đầy đủ với React và Node.js.
 
 ## 📁 Cấu trúc dự án
 
