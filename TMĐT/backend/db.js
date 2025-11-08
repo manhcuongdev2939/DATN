@@ -13,6 +13,17 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
+// Test database connection
+pool.getConnection()
+  .then((connection) => {
+    console.log('✅ Kết nối database thành công');
+    connection.release();
+  })
+  .catch((error) => {
+    console.error('❌ Lỗi kết nối database:', error.message);
+    console.error('💡 Kiểm tra lại cấu hình database trong file .env');
+  });
+
 export default pool;
 
 

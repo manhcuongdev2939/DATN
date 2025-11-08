@@ -118,13 +118,13 @@ router.post('/login-otp', async (req, res) => {
   }
 });
 
-// Đăng ký khách hàng
-router.post('/register', async (req, res) => {
+// Gửi OTP cho đăng ký mới
+router.post('/register-otp', async (req, res) => {
   try {
-    const { Ten_khach_hang, Email, Mat_khau, So_dien_thoai, Dia_chi_mac_dinh } = req.body;
+    const { Email } = req.body;
 
-    if (!Ten_khach_hang || !Email || !Mat_khau) {
-      return res.status(400).json({ error: 'Tên, Email và Mật khẩu là bắt buộc' });
+    if (!Email) {
+      return res.status(400).json({ error: 'Email là bắt buộc' });
     }
 
     // Kiểm tra email đã tồn tại
@@ -136,6 +136,66 @@ router.post('/register', async (req, res) => {
     if (existing.length > 0) {
       return res.status(400).json({ error: 'Email đã được sử dụng' });
     }
+
+    // Tạo OTP 6 số
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 phút
+
+    // Lưu OTP với prefix 'register_' để phân biệt với login OTP
+    otpStore.set(`register_${Email}`, { otp, expiresAt });
+
+    // Gửi email OTP
+    const emailResult = await sendOTP(Email, otp);
+
+    if (!emailResult.success) {
+      return res.status(500).json({ error: 'Không thể gửi email OTP' });
+    }
+
+    res.json({
+      message: 'Mã OTP đã được gửi đến email của bạn',
+    });
+  } catch (error) {
+    console.error('Register OTP error:', error);
+    res.status(500).json({ error: 'Lỗi gửi OTP' });
+  }
+});
+
+// Đăng ký khách hàng với OTP
+router.post('/register', async (req, res) => {
+  try {
+    const { Ten_khach_hang, Email, Mat_khau, So_dien_thoai, Dia_chi_mac_dinh, otp } = req.body;
+
+    if (!Ten_khach_hang || !Email || !Mat_khau || !otp) {
+      return res.status(400).json({ error: 'Tên, Email, Mật khẩu và OTP là bắt buộc' });
+    }
+
+    // Kiểm tra email đã tồn tại
+    const [existing] = await pool.query(
+      'SELECT ID_Khach_hang FROM khach_hang WHERE Email = ?',
+      [Email]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Email đã được sử dụng' });
+    }
+
+    // Kiểm tra OTP
+    const stored = otpStore.get(`register_${Email}`);
+    if (!stored) {
+      return res.status(400).json({ error: 'OTP không hợp lệ hoặc đã hết hạn' });
+    }
+
+    if (stored.expiresAt < Date.now()) {
+      otpStore.delete(`register_${Email}`);
+      return res.status(400).json({ error: 'OTP đã hết hạn' });
+    }
+
+    if (stored.otp !== otp) {
+      return res.status(400).json({ error: 'OTP không đúng' });
+    }
+
+    // OTP hợp lệ, xóa OTP và tạo tài khoản
+    otpStore.delete(`register_${Email}`);
 
     // Hash mật khẩu
     const Mat_khau_hash = await bcrypt.hash(Mat_khau, 10);

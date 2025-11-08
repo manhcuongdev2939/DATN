@@ -6,10 +6,15 @@ const transporter = nodemailer.createTransport({
   port: Number(process.env.SMTP_PORT || 587),
   secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
   },
 });
+
+// Kiểm tra cấu hình email khi khởi động
+if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  console.warn('⚠️  Cảnh báo: SMTP_USER hoặc SMTP_PASS chưa được cấu hình. Tính năng gửi email sẽ không hoạt động.');
+}
 
 // Gửi email voucher chào mừng
 export const sendWelcomeVoucher = async (email, voucherCode) => {

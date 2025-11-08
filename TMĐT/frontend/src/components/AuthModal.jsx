@@ -3,7 +3,6 @@ import { authAPI } from '../utils/api';
 
 export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'otp'
   const [otpSent, setOtpSent] = useState(false);
   const [formData, setFormData] = useState({
     Ten_khach_hang: '',
@@ -17,7 +16,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [sendingOTP, setSendingOTP] = useState(false);
 
-  const handleRequestOTP = async () => {
+  const handleRequestRegisterOTP = async () => {
     if (!formData.Email) {
       setError('Vui lòng nhập email');
       return;
@@ -27,7 +26,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setError('');
 
     try {
-      const result = await authAPI.requestOTP(formData.Email);
+      const res = await fetch('http://localhost:3001/api/auth/register-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: formData.Email }),
+      });
+      const result = await res.json();
       if (result.error) {
         setError(result.error);
       } else {
@@ -49,18 +53,33 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     try {
       let result;
       if (isLogin) {
-        if (loginMethod === 'otp') {
-          if (!otpSent) {
-            await handleRequestOTP();
-            setLoading(false);
-            return;
-          }
-          result = await authAPI.loginOTP(formData.Email, formData.otp);
-        } else {
-          result = await authAPI.login(formData.Email, formData.Mat_khau);
+        // Đăng nhập chỉ dùng mật khẩu
+        if (!formData.Mat_khau) {
+          setError('Vui lòng nhập mật khẩu');
+          setLoading(false);
+          return;
         }
+        result = await authAPI.login(formData.Email, formData.Mat_khau);
       } else {
-        result = await authAPI.register(formData);
+        // Đăng ký cần OTP
+        if (!otpSent) {
+          await handleRequestRegisterOTP();
+          setLoading(false);
+          return;
+        }
+        if (!formData.otp) {
+          setError('Vui lòng nhập mã OTP');
+          setLoading(false);
+          return;
+        }
+        result = await authAPI.register({
+          Ten_khach_hang: formData.Ten_khach_hang,
+          Email: formData.Email,
+          Mat_khau: formData.Mat_khau,
+          So_dien_thoai: formData.So_dien_thoai,
+          Dia_chi_mac_dinh: formData.Dia_chi_mac_dinh,
+          otp: formData.otp,
+        });
       }
 
       if (result.error) {
@@ -70,7 +89,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
         onClose();
         // Reset form
         setOtpSent(false);
-        setLoginMethod('password');
         setFormData({
           Ten_khach_hang: '',
           Email: '',
@@ -138,88 +156,63 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
             />
           </div>
 
-          {isLogin && (
-            <div className="mb-4">
-              <div className="flex gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginMethod('password');
-                    setOtpSent(false);
-                    setFormData({ ...formData, otp: '' });
-                  }}
-                  className={`flex-1 py-2 text-sm rounded border ${
-                    loginMethod === 'password'
-                      ? 'bg-brand-600 text-white border-brand-600'
-                      : 'bg-white text-gray-700'
-                  }`}
-                >
-                  Mật khẩu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginMethod('otp');
-                    setOtpSent(false);
-                    setFormData({ ...formData, Mat_khau: '', otp: '' });
-                  }}
-                  className={`flex-1 py-2 text-sm rounded border ${
-                    loginMethod === 'otp'
-                      ? 'bg-brand-600 text-white border-brand-600'
-                      : 'bg-white text-gray-700'
-                  }`}
-                >
-                  Mã OTP
-                </button>
-              </div>
-            </div>
-          )}
-
-          {isLogin && loginMethod === 'otp' ? (
-            <div className="mb-4">
-              {!otpSent ? (
-                <button
-                  type="button"
-                  onClick={handleRequestOTP}
-                  disabled={sendingOTP || !formData.Email}
-                  className="w-full rounded bg-brand-600 text-white py-2 text-sm hover:bg-brand-700 disabled:opacity-50"
-                >
-                  {sendingOTP ? 'Đang gửi...' : 'Gửi mã OTP'}
-                </button>
-              ) : (
-                <>
-                  <label className="block text-sm font-medium mb-1">Mã OTP</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength="6"
-                    value={formData.otp}
-                    onChange={(e) => setFormData({ ...formData, otp: e.target.value.replace(/\D/g, '') })}
-                    placeholder="Nhập 6 số OTP"
-                    className="w-full rounded border px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRequestOTP}
-                    disabled={sendingOTP}
-                    className="mt-2 text-sm text-brand-600 hover:underline"
-                  >
-                    {sendingOTP ? 'Đang gửi...' : 'Gửi lại mã OTP'}
-                  </button>
-                </>
-              )}
-            </div>
-          ) : (
+          {isLogin ? (
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Mật khẩu</label>
               <input
                 type="password"
-                required={loginMethod === 'password'}
+                required
                 value={formData.Mat_khau}
                 onChange={(e) => setFormData({ ...formData, Mat_khau: e.target.value })}
                 className="w-full rounded border px-3 py-2 text-sm"
               />
             </div>
+          ) : (
+            <>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">Mật khẩu</label>
+                <input
+                  type="password"
+                  required
+                  value={formData.Mat_khau}
+                  onChange={(e) => setFormData({ ...formData, Mat_khau: e.target.value })}
+                  className="w-full rounded border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="mb-4">
+                {!otpSent ? (
+                  <button
+                    type="button"
+                    onClick={handleRequestRegisterOTP}
+                    disabled={sendingOTP || !formData.Email}
+                    className="w-full rounded bg-brand-600 text-white py-2 text-sm hover:bg-brand-700 disabled:opacity-50"
+                  >
+                    {sendingOTP ? 'Đang gửi...' : 'Gửi mã OTP xác thực'}
+                  </button>
+                ) : (
+                  <>
+                    <label className="block text-sm font-medium mb-1">Mã OTP xác thực</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength="6"
+                      value={formData.otp}
+                      onChange={(e) => setFormData({ ...formData, otp: e.target.value.replace(/\D/g, '') })}
+                      placeholder="Nhập 6 số OTP đã gửi đến email"
+                      className="w-full rounded border px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRequestRegisterOTP}
+                      disabled={sendingOTP}
+                      className="mt-2 text-sm text-brand-600 hover:underline"
+                    >
+                      {sendingOTP ? 'Đang gửi...' : 'Gửi lại mã OTP'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
           )}
 
           {!isLogin && (
@@ -247,10 +240,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
 
           <button
             type="submit"
-            disabled={loading || (isLogin && loginMethod === 'otp' && !otpSent)}
+            disabled={loading || (!isLogin && !otpSent)}
             className="w-full rounded bg-brand-600 text-white py-2 text-sm hover:bg-brand-700 disabled:opacity-50"
           >
-            {loading ? 'Đang xử lý...' : isLogin ? (loginMethod === 'otp' && !otpSent ? 'Gửi mã OTP' : 'Đăng nhập') : 'Đăng ký'}
+            {loading ? 'Đang xử lý...' : isLogin ? 'Đăng nhập' : (otpSent ? 'Đăng ký' : 'Gửi mã OTP')}
           </button>
         </form>
 
@@ -259,6 +252,15 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
             onClick={() => {
               setIsLogin(!isLogin);
               setError('');
+              setOtpSent(false);
+              setFormData({
+                Ten_khach_hang: '',
+                Email: '',
+                Mat_khau: '',
+                otp: '',
+                So_dien_thoai: '',
+                Dia_chi_mac_dinh: '',
+              });
             }}
             className="text-brand-600 hover:underline"
           >

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthModal from './components/AuthModal';
 import CartModal from './components/CartModal';
 import ProductDetail from './components/ProductDetail';
@@ -7,25 +7,46 @@ import Checkout from './components/Checkout';
 import Orders from './components/Orders';
 import OrderSuccess from './components/OrderSuccess';
 import UserDashboard from './components/UserDashboard';
+import SearchResults from './components/SearchResults';
+import LoginPage from './components/LoginPage';
+import RegisterPage from './components/RegisterPage';
 import { authAPI } from './utils/api';
 
 function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded bg-brand-600" />
           <span className="font-semibold text-lg">Ecommerce</span>
-        </div>
+        </Link>
         <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
-          <a href="#" className="hover:text-gray-900">Trang chủ</a>
+          <Link to="/" className="hover:text-gray-900">Trang chủ</Link>
           <a href="#categories" className="hover:text-gray-900">Danh mục</a>
           <a href="#featured?category=laptop" className="hover:text-gray-900">Laptop</a>
           <a href="#featured?category=phone" className="hover:text-gray-900">Điện thoại</a>
           <a href="#newsletter" className="hover:text-gray-900">Liên hệ</a>
         </nav>
         <div className="flex items-center gap-3">
-          <input className="hidden md:block w-64 rounded border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Tìm sản phẩm..." />
+          <form onSubmit={handleSearch} className="hidden md:block">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-64 rounded border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="Tìm sản phẩm..."
+            />
+          </form>
           {user ? (
             <div className="flex items-center gap-3">
               <button 
@@ -48,12 +69,12 @@ function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
               </button>
             </div>
           ) : (
-            <button 
-              onClick={onLoginClick}
+            <Link
+              to="/login"
               className="rounded bg-brand-600 text-white px-3 py-1.5 text-sm hover:bg-brand-700"
             >
               Đăng nhập
-            </button>
+            </Link>
           )}
         </div>
       </div>
@@ -311,6 +332,7 @@ function HomePage({ user, onLoginClick }) {
 }
 
 export default function App() {
+  const location = useLocation();
   const [user, setUser] = React.useState(null);
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showCartModal, setShowCartModal] = React.useState(false);
@@ -347,23 +369,30 @@ export default function App() {
     setUser(updatedUser);
   };
 
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
   return (
     <div className="min-h-full flex flex-col">
-      <NavBar 
-        user={user} 
-        onLoginClick={() => setShowAuthModal(true)}
-        onLogout={handleLogout}
-        onCartClick={() => {
-          if (!user) {
-            setShowAuthModal(true);
-          } else {
-            setShowCartModal(true);
-          }
-        }}
-      />
+      {!isAuthPage && (
+        <NavBar 
+          user={user} 
+          onLoginClick={() => setShowAuthModal(true)}
+          onLogout={handleLogout}
+          onCartClick={() => {
+            if (!user) {
+              setShowAuthModal(true);
+            } else {
+              setShowCartModal(true);
+            }
+          }}
+        />
+      )}
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage user={user} onLoginClick={() => setShowAuthModal(true)} />} />
+          <Route path="/login" element={<LoginPage onSuccess={handleLoginSuccess} />} />
+          <Route path="/register" element={<RegisterPage onSuccess={handleLoginSuccess} />} />
+          <Route path="/search" element={<SearchResults />} />
           <Route path="/product/:id" element={<ProductDetail user={user} />} />
           <Route path="/checkout" element={<Checkout user={user} />} />
           <Route path="/orders" element={<Orders user={user} />} />
@@ -371,7 +400,7 @@ export default function App() {
           <Route path="/dashboard" element={<UserDashboard user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />} />
         </Routes>
       </main>
-      <Footer />
+      {!isAuthPage && <Footer />}
       <AuthModal 
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
