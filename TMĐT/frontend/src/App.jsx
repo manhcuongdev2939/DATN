@@ -109,9 +109,26 @@ function Featured() {
         const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to load products');
         const data = await res.json();
-        setProducts(data);
+        // Handle both array response and object with products property
+        const productsArray = Array.isArray(data) ? data : (data.products || []);
+        // Transform API field names to frontend expected format
+        const transformedProducts = productsArray.map((p) => ({
+          id: p.ID_San_pham || p.id,
+          name: p.Ten_san_pham || p.name,
+          price: p.Gia || p.price,
+          image_url: p.Thumbnail || p.image_url,
+          brand: p.Ten_danh_muc || p.brand,
+          description: p.Mo_ta || p.description,
+          originalPrice: p.Gia_goc || p.originalPrice,
+          stock: p.So_luong_ton_kho || p.stock,
+          category: p.Ten_danh_muc || p.category,
+          rating: p.Diem_trung_binh || p.rating,
+          reviewCount: p.So_luong_danh_gia || p.reviewCount
+        }));
+        setProducts(transformedProducts);
       } catch (e) {
         setError('Không tải được sản phẩm.');
+        setProducts([]); // Ensure products is always an array
       } finally {
         setLoading(false);
       }
@@ -135,7 +152,7 @@ function Featured() {
           <div className="mt-8 text-red-600 text-sm">{error}</div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && Array.isArray(products) && (
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
             {products.map((p) => (
               <div key={p.id} className="rounded-xl bg-white border hover:shadow-lg transition">
