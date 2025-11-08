@@ -2,7 +2,22 @@ MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_USER=root
 MYSQL_PASSWORD=admin
-MYSQL_DATABASE=ecommerce
+MYSQL_DATABASE=demo
 
 # Express port
 PORT=3001
+
+# JWT Secret (thay đổi trong production)
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+
+# Email configuration (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+
+# Lưu ý: Với Gmail, cần tạo App Password:
+# 1. Vào Google Account > Security
+# 2. Bật 2-Step Verification
+# 3. Tạo App Password cho "Mail"
+# 4. Sử dụng App Password thay vì mật khẩu thường
