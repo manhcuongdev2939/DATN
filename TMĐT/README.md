@@ -10,22 +10,6 @@ Hệ thống thương mại điện tử đầy đủ với các chức năng:
 - Voucher/Giảm giá
 - Thanh toán
 
-## Cấu trúc dự án
-
-```
-TMĐT/
-├── backend/          # Node.js Express API
-│   ├── routes/      # API routes
-│   ├── middleware/  # Authentication middleware
-│   ├── sql/         # SQL migration files
-│   └── index.js     # Entry point
-└── frontend/        # React + Vite + Tailwind
-    ├── src/
-    │   ├── components/  # React components
-    │   ├── utils/       # API utilities
-    │   └── App.jsx      # Main component
-    └── ...
-```
 
 ## Cài đặt
 
