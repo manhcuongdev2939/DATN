@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressesAPI } from '../utils/api';
+import SearchableSelect from './SearchableSelect';
+import {
+  vietnamProvinces,
+  getDistrictsByProvince,
+  getWardsByDistrict,
+  searchProvinces,
+  searchDistricts,
+  searchWards,
+} from '../data/vietnamAddresses';
 
 export default function AddressManagement({ user, onClose, onSelect }) {
   const navigate = useNavigate();
@@ -18,6 +27,11 @@ export default function AddressManagement({ user, onClose, onSelect }) {
     Mac_dinh: false,
   });
   const [error, setError] = useState('');
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
+  const [availableDistricts, setAvailableDistricts] = useState([]);
+  const [availableWards, setAvailableWards] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     if (!user) {
@@ -42,6 +56,17 @@ export default function AddressManagement({ user, onClose, onSelect }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
+
+    // Validate required fields
+    const errors = {};
+    if (!formData.Tinh_Thanh) errors.Tinh_Thanh = 'Vui lòng chọn Tỉnh/Thành phố';
+    if (!formData.Quan_Huyen) errors.Quan_Huyen = 'Vui lòng chọn Quận/Huyện';
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
 
     try {
       if (editingId) {
@@ -52,6 +77,10 @@ export default function AddressManagement({ user, onClose, onSelect }) {
       await loadAddresses();
       setShowForm(false);
       setEditingId(null);
+      setSelectedProvinceCode('');
+      setSelectedDistrictCode('');
+      setAvailableDistricts([]);
+      setAvailableWards([]);
       setFormData({
         Ten_nguoi_nhan: '',
         So_dien_thoai: '',
@@ -66,7 +95,78 @@ export default function AddressManagement({ user, onClose, onSelect }) {
     }
   };
 
+  // Update districts when province changes
+  useEffect(() => {
+    if (selectedProvinceCode) {
+      const districts = getDistrictsByProvince(selectedProvinceCode);
+      setAvailableDistricts(districts);
+    } else {
+      setAvailableDistricts([]);
+      setAvailableWards([]);
+    }
+  }, [selectedProvinceCode]);
+
+  // Update wards when district changes
+  useEffect(() => {
+    if (selectedProvinceCode && selectedDistrictCode) {
+      const wards = getWardsByDistrict(selectedProvinceCode, selectedDistrictCode);
+      setAvailableWards(wards);
+    } else {
+      setAvailableWards([]);
+    }
+  }, [selectedProvinceCode, selectedDistrictCode]);
+
+  // Find province code from name
+  const findProvinceCode = (provinceName) => {
+    const province = vietnamProvinces.find(p => p.name === provinceName);
+    return province?.code || '';
+  };
+
+  // Find district code from name
+  const findDistrictCode = (districtName) => {
+    const district = availableDistricts.find(d => d.name === districtName);
+    return district?.code || '';
+  };
+
+  const handleProvinceChange = (provinceName) => {
+    const code = findProvinceCode(provinceName);
+    setSelectedProvinceCode(code);
+    setSelectedDistrictCode('');
+    setFormData(prev => ({ ...prev, Tinh_Thanh: provinceName, Quan_Huyen: '', Phuong_Xa: '' }));
+    setFieldErrors(prev => ({ ...prev, Tinh_Thanh: '', Quan_Huyen: '', Phuong_Xa: '' }));
+  };
+
+  const handleDistrictChange = (districtName) => {
+    const code = findDistrictCode(districtName);
+    setSelectedDistrictCode(code);
+    setFormData(prev => ({ ...prev, Quan_Huyen: districtName, Phuong_Xa: '' }));
+    setFieldErrors(prev => ({ ...prev, Quan_Huyen: '', Phuong_Xa: '' }));
+  };
+
+  const handleWardChange = (wardName) => {
+    setFormData(prev => ({ ...prev, Phuong_Xa: wardName }));
+    setFieldErrors(prev => ({ ...prev, Phuong_Xa: '' }));
+  };
+
   const handleEdit = (address) => {
+    const provinceCode = findProvinceCode(address.Tinh_Thanh);
+    setSelectedProvinceCode(provinceCode);
+    
+    // Load districts for the province
+    if (provinceCode) {
+      const districts = getDistrictsByProvince(provinceCode);
+      setAvailableDistricts(districts);
+      
+      // Find and set district code
+      const district = districts.find(d => d.name === address.Quan_Huyen);
+      if (district) {
+        setSelectedDistrictCode(district.code);
+        // Load wards for the district
+        const wards = getWardsByDistrict(provinceCode, district.code);
+        setAvailableWards(wards);
+      }
+    }
+    
     setFormData({
       Ten_nguoi_nhan: address.Ten_nguoi_nhan,
       So_dien_thoai: address.So_dien_thoai,
@@ -128,6 +228,11 @@ export default function AddressManagement({ user, onClose, onSelect }) {
               onClick={() => {
                 setShowForm(true);
                 setEditingId(null);
+                setSelectedProvinceCode('');
+                setSelectedDistrictCode('');
+                setAvailableDistricts([]);
+                setAvailableWards([]);
+                setFieldErrors({});
                 setFormData({
                   Ten_nguoi_nhan: '',
                   So_dien_thoai: '',
@@ -186,33 +291,42 @@ export default function AddressManagement({ user, onClose, onSelect }) {
                   placeholder="Số nhà, tên đường"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Phường/Xã</label>
-                  <input
-                    type="text"
-                    value={formData.Phuong_Xa}
-                    onChange={(e) => setFormData({ ...formData, Phuong_Xa: e.target.value })}
-                    className="w-full rounded border px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Quận/Huyện</label>
-                  <input
-                    type="text"
-                    value={formData.Quan_Huyen}
-                    onChange={(e) => setFormData({ ...formData, Quan_Huyen: e.target.value })}
-                    className="w-full rounded border px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Tỉnh/Thành phố *</label>
-                  <input
-                    type="text"
-                    required
+                  <SearchableSelect
+                    options={vietnamProvinces}
                     value={formData.Tinh_Thanh}
-                    onChange={(e) => setFormData({ ...formData, Tinh_Thanh: e.target.value })}
-                    className="w-full rounded border px-3 py-2"
+                    onChange={handleProvinceChange}
+                    placeholder="Chọn Tỉnh/Thành phố"
+                    searchPlaceholder="Tìm Tỉnh/Thành phố..."
+                    required
+                    label="Tỉnh/Thành phố"
+                    error={fieldErrors.Tinh_Thanh}
+                  />
+                </div>
+                <div>
+                  <SearchableSelect
+                    options={availableDistricts}
+                    value={formData.Quan_Huyen}
+                    onChange={handleDistrictChange}
+                    placeholder={selectedProvinceCode ? "Chọn Quận/Huyện" : "Chọn Tỉnh/Thành phố trước"}
+                    searchPlaceholder="Tìm Quận/Huyện..."
+                    disabled={!selectedProvinceCode}
+                    label="Quận/Huyện"
+                    error={fieldErrors.Quan_Huyen}
+                    allowCustomInput={true}
+                  />
+                </div>
+                <div>
+                  <SearchableSelect
+                    options={availableWards}
+                    value={formData.Phuong_Xa}
+                    onChange={handleWardChange}
+                    placeholder={selectedDistrictCode ? "Chọn Phường/Xã" : "Chọn Quận/Huyện trước"}
+                    searchPlaceholder="Tìm Phường/Xã..."
+                    disabled={!selectedDistrictCode}
+                    label="Phường/Xã"
+                    allowCustomInput={true}
                   />
                 </div>
               </div>
