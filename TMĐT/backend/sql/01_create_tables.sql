@@ -232,3 +232,15 @@ CREATE TABLE IF NOT EXISTS nguoi_dung_admin (
     INDEX idx_vai_tro (Vai_tro)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 16. Bảng lưu OTP (OTP store)
+CREATE TABLE IF NOT EXISTS otp_codes (
+    ID INT PRIMARY KEY AUTO_INCREMENT,
+    Email VARCHAR(100) NOT NULL,
+    Otp_code VARCHAR(10) NOT NULL,
+    Type ENUM('login', 'register') DEFAULT 'login',
+    Expires_at DATETIME NOT NULL,
+    Created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_email_type (Email, Type),
+    INDEX idx_expires_at (Expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

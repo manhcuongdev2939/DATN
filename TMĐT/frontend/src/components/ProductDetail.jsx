@@ -135,7 +135,7 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
           <div>
             <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 mb-4">
               <img
-                src={product.Thumbnail || images[0]?.URL_hinh_anh || 'https://via.placeholder.com/600'}
+                src={product.Thumbnail || images[0]?.URL_hinh_anh || "data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20300%20300'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%23e5e7eb'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20fill='%239ca3af'%20font-size='20'%3ENo%20image%3C/text%3E%3C/svg%3E"}
                 alt={product.Ten_san_pham}
                 className="w-full h-full object-cover"
               />

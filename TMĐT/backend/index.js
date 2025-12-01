@@ -1,9 +1,11 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import pinoHttp from 'pino-http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pool from './db.js';
-
-// Import routes
 import authRoutes from './routes/auth.js';
 import productsRoutes from './routes/products.js';
 import categoriesRoutes from './routes/categories.js';
@@ -14,17 +16,60 @@ import wishlistRoutes from './routes/wishlist.js';
 import addressesRoutes from './routes/addresses.js';
 import vouchersRoutes from './routes/vouchers.js';
 import newsletterRoutes from './routes/newsletter.js';
+import newsRoutes from './routes/news.js';
+import contactRoutes from './routes/contacts.js';
+import uploadsRoutes from './routes/uploads.js';
+import adminRoutes from './routes/admin.js';
+import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : ['http://localhost:5173'];
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+};
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-// API Routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const logger = pinoHttp({
+  level: process.env.LOG_LEVEL || 'info',
+});
+
+app.use(logger);
+app.use(cors(corsOptions));
+app.use(globalLimiter);
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', db: pool ? 'connected' : 'unknown' });
+});
+
+// Apply auth routes without a global limiter here; specific routes (OTP) are limited inside the route file.
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/categories', categoriesRoutes);
@@ -35,20 +80,15 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/addresses', addressesRoutes);
 app.use('/api/vouchers', vouchersRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/contact', contactRoutes);
+app.use('/api/uploads', uploadsRoutes);
+app.use('/api/admin', adminRoutes);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 API running on http://localhost:${PORT}`);
-  console.log(`📚 API Documentation:`);
-  console.log(`   - Auth: /api/auth/register, /api/auth/login`);
-  console.log(`   - Products: /api/products`);
-  console.log(`   - Categories: /api/categories`);
-  console.log(`   - Cart: /api/cart`);
-  console.log(`   - Orders: /api/orders`);
-  console.log(`   - Reviews: /api/reviews`);
-  console.log(`   - Wishlist: /api/wishlist`);
-  console.log(`   - Addresses: /api/addresses`);
-  console.log(`   - Vouchers: /api/vouchers`);
 });
-
-

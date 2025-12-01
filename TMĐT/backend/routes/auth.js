@@ -1,24 +1,21 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import pool from '../db.js';
 import { JWT_SECRET } from '../middleware/auth.js';
 import { sendOTP } from '../utils/email.js';
-import crypto from 'crypto';
+import { validateBody, authSchemas } from '../middleware/requestValidator.js';
+import { saveOtp, verifyOtp, OTP_TYPES } from '../services/otpStore.js';
+import { errorResponse, successResponse } from '../utils/response.js';
 
 const router = express.Router();
 
-// Store OTPs temporarily (trong production nên dùng Redis)
-const otpStore = new Map();
-
 // Tạo và gửi OTP
-router.post('/request-otp', async (req, res) => {
+router.post('/request-otp', validateBody(authSchemas.requestOtp), async (req, res, next) => {
   try {
     const { Email } = req.body;
-
-    if (!Email) {
-      return res.status(400).json({ error: 'Email là bắt buộc' });
-    }
 
     // Kiểm tra email có tồn tại không
     const [users] = await pool.query(
@@ -27,58 +24,49 @@ router.post('/request-otp', async (req, res) => {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({ error: 'Email chưa được đăng ký' });
+      return errorResponse(res, 'Email chưa được đăng ký', 404);
     }
 
     // Tạo OTP 6 số
     const otp = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 phút
 
-    // Lưu OTP
-    otpStore.set(Email, { otp, expiresAt });
+    // Lưu OTP vào database
+    await saveOtp({ email: Email, code: otp, type: OTP_TYPES.LOGIN });
 
     // Gửi email OTP
     const emailResult = await sendOTP(Email, otp);
 
     if (!emailResult.success) {
-      return res.status(500).json({ error: 'Không thể gửi email OTP' });
+      return errorResponse(res, 'Không thể gửi email OTP', 500);
     }
 
-    res.json({
-      message: 'Mã OTP đã được gửi đến email của bạn',
-    });
+    return successResponse(res, { message: 'Mã OTP đã được gửi đến email của bạn' });
   } catch (error) {
-    console.error('Request OTP error:', error);
-    res.status(500).json({ error: 'Lỗi gửi OTP' });
+    next(error);
   }
 });
+// Rate limiter for OTP endpoints (register/request OTP) — prevents abuse while keeping other auth routes responsive
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 6, // allow up to 6 OTP requests per window per IP
+  message: 'Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau 15 phút.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-// Đăng nhập bằng OTP
-router.post('/login-otp', async (req, res) => {
+router.post('/login-otp', validateBody(authSchemas.loginOtp), async (req, res, next) => {
   try {
     const { Email, otp } = req.body;
 
-    if (!Email || !otp) {
-      return res.status(400).json({ error: 'Email và OTP là bắt buộc' });
-    }
+    const { valid, reason } = await verifyOtp({
+      email: Email,
+      code: otp,
+      type: OTP_TYPES.LOGIN,
+    });
 
-    // Kiểm tra OTP
-    const stored = otpStore.get(Email);
-    if (!stored) {
-      return res.status(400).json({ error: 'OTP không hợp lệ hoặc đã hết hạn' });
+    if (!valid) {
+      return errorResponse(res, reason || 'OTP không hợp lệ', 400);
     }
-
-    if (stored.expiresAt < Date.now()) {
-      otpStore.delete(Email);
-      return res.status(400).json({ error: 'OTP đã hết hạn' });
-    }
-
-    if (stored.otp !== otp) {
-      return res.status(400).json({ error: 'OTP không đúng' });
-    }
-
-    // OTP hợp lệ, xóa OTP và đăng nhập
-    otpStore.delete(Email);
 
     // Lấy thông tin user
     const [users] = await pool.query(
@@ -87,13 +75,13 @@ router.post('/login-otp', async (req, res) => {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+      return errorResponse(res, 'Không tìm thấy tài khoản', 404);
     }
 
     const user = users[0];
 
     if (user.Trang_thai !== 'active') {
-      return res.status(403).json({ error: 'Tài khoản đã bị khóa' });
+      return errorResponse(res, 'Tài khoản đã bị khóa', 403);
     }
 
     // Tạo token
@@ -103,29 +91,23 @@ router.post('/login-otp', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.json({
+    return successResponse(res, {
       message: 'Đăng nhập thành công',
       token,
       user: {
         ID_Khach_hang: user.ID_Khach_hang,
         Ten_khach_hang: user.Ten_khach_hang,
-        Email: user.Email
-      }
+        Email: user.Email,
+      },
     });
   } catch (error) {
-    console.error('Login OTP error:', error);
-    res.status(500).json({ error: 'Lỗi đăng nhập' });
+    next(error);
   }
 });
 
-// Gửi OTP cho đăng ký mới
-router.post('/register-otp', async (req, res) => {
+router.post('/register-otp', otpLimiter, validateBody(authSchemas.registerOtp), async (req, res, next) => {
   try {
     const { Email } = req.body;
-
-    if (!Email) {
-      return res.status(400).json({ error: 'Email là bắt buộc' });
-    }
 
     // Kiểm tra email đã tồn tại
     const [existing] = await pool.query(
@@ -134,40 +116,29 @@ router.post('/register-otp', async (req, res) => {
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'Email đã được sử dụng' });
+      return errorResponse(res, 'Email đã được sử dụng', 400);
     }
 
     // Tạo OTP 6 số
     const otp = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 phút
-
-    // Lưu OTP với prefix 'register_' để phân biệt với login OTP
-    otpStore.set(`register_${Email}`, { otp, expiresAt });
+    await saveOtp({ email: Email, code: otp, type: OTP_TYPES.REGISTER });
 
     // Gửi email OTP
     const emailResult = await sendOTP(Email, otp);
 
     if (!emailResult.success) {
-      return res.status(500).json({ error: 'Không thể gửi email OTP' });
+      return errorResponse(res, 'Không thể gửi email OTP', 500);
     }
 
-    res.json({
-      message: 'Mã OTP đã được gửi đến email của bạn',
-    });
+    return successResponse(res, { message: 'Mã OTP đã được gửi đến email của bạn' });
   } catch (error) {
-    console.error('Register OTP error:', error);
-    res.status(500).json({ error: 'Lỗi gửi OTP' });
+    next(error);
   }
 });
 
-// Đăng ký khách hàng với OTP
-router.post('/register', async (req, res) => {
+router.post('/register', validateBody(authSchemas.register), async (req, res, next) => {
   try {
     const { Ten_khach_hang, Email, Mat_khau, So_dien_thoai, Dia_chi_mac_dinh, otp } = req.body;
-
-    if (!Ten_khach_hang || !Email || !Mat_khau || !otp) {
-      return res.status(400).json({ error: 'Tên, Email, Mật khẩu và OTP là bắt buộc' });
-    }
 
     // Kiểm tra email đã tồn tại
     const [existing] = await pool.query(
@@ -176,26 +147,18 @@ router.post('/register', async (req, res) => {
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'Email đã được sử dụng' });
+      return errorResponse(res, 'Email đã được sử dụng', 400);
     }
 
-    // Kiểm tra OTP
-    const stored = otpStore.get(`register_${Email}`);
-    if (!stored) {
-      return res.status(400).json({ error: 'OTP không hợp lệ hoặc đã hết hạn' });
-    }
+    const { valid, reason } = await verifyOtp({
+      email: Email,
+      code: otp,
+      type: OTP_TYPES.REGISTER,
+    });
 
-    if (stored.expiresAt < Date.now()) {
-      otpStore.delete(`register_${Email}`);
-      return res.status(400).json({ error: 'OTP đã hết hạn' });
+    if (!valid) {
+      return errorResponse(res, reason || 'OTP không hợp lệ hoặc đã hết hạn', 400);
     }
-
-    if (stored.otp !== otp) {
-      return res.status(400).json({ error: 'OTP không đúng' });
-    }
-
-    // OTP hợp lệ, xóa OTP và tạo tài khoản
-    otpStore.delete(`register_${Email}`);
 
     // Hash mật khẩu
     const Mat_khau_hash = await bcrypt.hash(Mat_khau, 10);
@@ -213,6 +176,20 @@ router.post('/register', async (req, res) => {
       [result.insertId]
     );
 
+    // Nếu user cung cấp địa chỉ mặc định khi đăng ký, lưu vào bảng dia_chi_giao_hang
+    if (Dia_chi_mac_dinh) {
+      try {
+        await pool.query(
+          `INSERT INTO dia_chi_giao_hang (ID_Khach_hang, Ten_nguoi_nhan, So_dien_thoai, Dia_chi, Mac_dinh)
+           VALUES (?, ?, ?, ?, ?)`,
+          [result.insertId, Ten_khach_hang || null, So_dien_thoai || null, Dia_chi_mac_dinh, true]
+        );
+      } catch (e) {
+        console.error('Save default address on register error:', e);
+        // Không dừng quá trình đăng ký nếu lưu địa chỉ thất bại
+      }
+    }
+
     // Tạo token
     const token = jwt.sign(
       { id: result.insertId, email: Email, role: 'customer' },
@@ -220,29 +197,42 @@ router.post('/register', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.status(201).json({
-      message: 'Đăng ký thành công',
-      token,
-      user: {
-        ID_Khach_hang: result.insertId,
-        Ten_khach_hang,
-        Email
-      }
-    });
+    // Lấy lại địa chỉ giao hàng nếu có để trả về cho frontend
+    let savedAddresses = [];
+    try {
+      const [rows] = await pool.query(
+        'SELECT * FROM dia_chi_giao_hang WHERE ID_Khach_hang = ?',
+        [result.insertId]
+      );
+      savedAddresses = rows;
+    } catch (e) {
+      // ignore
+    }
+
+    return successResponse(
+      res,
+      {
+        message: 'Đăng ký thành công',
+        token,
+        user: {
+          ID_Khach_hang: result.insertId,
+          Ten_khach_hang,
+          Email,
+          Dia_chi_mac_dinh: Dia_chi_mac_dinh || null,
+          addresses: savedAddresses,
+        },
+      },
+      {},
+      201
+    );
   } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ error: 'Lỗi đăng ký' });
+    next(error);
   }
 });
 
-// Đăng nhập
-router.post('/login', async (req, res) => {
+router.post('/login', validateBody(authSchemas.login), async (req, res, next) => {
   try {
     const { Email, Mat_khau } = req.body;
-
-    if (!Email || !Mat_khau) {
-      return res.status(400).json({ error: 'Email và Mật khẩu là bắt buộc' });
-    }
 
     // Tìm khách hàng
     const [users] = await pool.query(
@@ -251,20 +241,20 @@ router.post('/login', async (req, res) => {
     );
 
     if (users.length === 0) {
-      return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
+      return errorResponse(res, 'Email hoặc mật khẩu không đúng', 401);
     }
 
     const user = users[0];
 
     if (user.Trang_thai !== 'active') {
-      return res.status(403).json({ error: 'Tài khoản đã bị khóa' });
+      return errorResponse(res, 'Tài khoản đã bị khóa', 403);
     }
 
     // Kiểm tra mật khẩu
     const isValid = await bcrypt.compare(Mat_khau, user.Mat_khau_hash);
 
     if (!isValid) {
-      return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
+      return errorResponse(res, 'Email hoặc mật khẩu không đúng', 401);
     }
 
     // Tạo token
@@ -274,29 +264,27 @@ router.post('/login', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.json({
+    return successResponse(res, {
       message: 'Đăng nhập thành công',
       token,
       user: {
         ID_Khach_hang: user.ID_Khach_hang,
         Ten_khach_hang: user.Ten_khach_hang,
-        Email: user.Email
-      }
+        Email: user.Email,
+      },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Lỗi đăng nhập' });
+    next(error);
   }
 });
 
-// Lấy thông tin người dùng hiện tại
-router.get('/me', async (req, res) => {
+router.get('/me', async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({ error: 'Token required' });
+      return errorResponse(res, 'Token required', 401);
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -306,12 +294,12 @@ router.get('/me', async (req, res) => {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, 'User not found', 404);
     }
 
-    res.json({ user: users[0] });
+    return successResponse(res, { user: users[0] });
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
+    return errorResponse(res, 'Invalid token', 401);
   }
 });
 

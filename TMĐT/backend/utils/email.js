@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
-// Cấu hình email transporter
-const transporter = nodemailer.createTransport({
+// Default transporter config (may be overridden at send time)
+const defaultTransportConfig = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(process.env.SMTP_PORT || 587),
   secure: false, // true for 465, false for other ports
@@ -9,11 +9,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
   },
-});
+};
 
-// Kiểm tra cấu hình email khi khởi động
 if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-  console.warn('⚠️  Cảnh báo: SMTP_USER hoặc SMTP_PASS chưa được cấu hình. Tính năng gửi email sẽ không hoạt động.');
+  console.warn('⚠️  Cảnh báo: SMTP_USER hoặc SMTP_PASS chưa được cấu hình. Sẽ dùng tài khoản thử (Ethereal) cho môi trường phát triển khi gửi email.');
 }
 
 // Gửi email voucher chào mừng
@@ -38,9 +37,24 @@ export const sendWelcomeVoucher = async (email, voucherCode) => {
       `,      
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    // If SMTP not configured, create a test account on the fly (Ethereal)
+    let transport = nodemailer.createTransport(defaultTransportConfig);
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      const testAccount = await nodemailer.createTestAccount();
+      transport = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: { user: testAccount.user, pass: testAccount.pass },
+      });
+    }
+
+    const info = await transport.sendMail(mailOptions);
     console.log('Welcome email sent:', info.messageId);
-    return { success: true };
+    // If using Ethereal, print preview URL
+    const preview = nodemailer.getTestMessageUrl(info);
+    if (preview) console.log('Preview URL:', preview);
+    return { success: true, preview };
   } catch (error) {
     console.error('Error sending welcome email:', error);
     return { success: false, error: error.message };
@@ -69,14 +83,27 @@ export const sendOTP = async (email, otp) => {
       `,
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    let transport = nodemailer.createTransport(defaultTransportConfig);
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      const testAccount = await nodemailer.createTestAccount();
+      transport = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: { user: testAccount.user, pass: testAccount.pass },
+      });
+    }
+
+    const info = await transport.sendMail(mailOptions);
     console.log('OTP email sent:', info.messageId);
-    return { success: true };
+    const preview = nodemailer.getTestMessageUrl(info);
+    if (preview) console.log('Preview URL:', preview);
+    return { success: true, preview };
   } catch (error) {
     console.error('Error sending OTP email:', error);
     return { success: false, error: error.message };
   }
 };
 
-export default transporter;
+export default nodemailer.createTransport(defaultTransportConfig);
 
