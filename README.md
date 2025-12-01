@@ -2,15 +2,7 @@
 
 Dự án tốt nghiệp xây dựng hệ thống thương mại điện tử (MCM Shop) đầy đủ với React và Node.js.
 
-## 📁 Cấu trúc dự án
 
-```
-.
-├── TMĐT/                    # Thư mục chính của dự án
-│   ├── backend/            # Backend API (Node.js + Express + MySQL)
-│   └── frontend/           # Frontend (React + Vite + Tailwind CSS)
-└── README.md               # File này
-```
 
 ## 🚀 Bắt đầu
 
