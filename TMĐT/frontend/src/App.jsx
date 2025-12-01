@@ -20,7 +20,7 @@ import AdminLogin from "./admin/AdminLogin";
 import AdminDashboard from "./admin/AdminDashboard";
 import Contact from "./components/Contact";
 import News from "./components/News";
-import { authAPI, cartAPI, ordersAPI, productsAPI } from "./utils/api";
+import { authAPI, cartAPI, ordersAPI, productsAPI, categoriesAPI } from "./utils/api";
 
 function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
   const navigate = useNavigate();
@@ -434,55 +434,156 @@ function Hero({ user }) {
 }
 
 function Categories() {
-  const [categories, setCategories] = React.useState([
-    {
-      category: "laptop",
-      title: "Laptop",
-      color: "bg-blue-100",
-      dot: "bg-blue-500",
-      icon: "💻",
-    },
-    {
-      category: "phone",
-      title: "Điện thoại",
-      color: "bg-purple-100",
-      dot: "bg-purple-500",
-      icon: "📱",
-    },
-  ]);
+  const [categories, setCategories] = React.useState([]);
+  // Load categories from backend (includes So_luong_san_pham)
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await categoriesAPI.getAll();
+        // data is expected to be an array of category objects from backend
+        if (!mounted || !data) return;
+        const mapped = (Array.isArray(data) ? data : []).map((c, idx) => ({
+          slug: String(c.ID_Danh_muc || c.id || c.ID || idx),
+          title: c.Ten_danh_muc || c.title || `Danh mục ${idx + 1}`,
+          color: ["bg-blue-50", "bg-purple-50", "bg-green-50"][idx % 3] || "bg-gray-50",
+          accent: ["bg-blue-500", "bg-purple-500", "bg-green-500"][idx % 3] || "bg-gray-500",
+          icon: c.Icon || (idx % 3 === 0 ? "💻" : idx % 3 === 1 ? "📱" : "🎧"),
+          description: c.Mo_ta || c.Mo_ta_danh_muc || "",
+          count: Number(c.So_luong_san_pham || c.count || 0),
+        }));
+        setCategories(mapped);
+      } catch (err) {
+        // fallback: keep categories empty
+        console.error('Load categories failed', err && err.message);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const [query, setQuery] = React.useState("");
+  const [selected, setSelected] = React.useState(null);
+
+  const filtered = categories.filter((c) =>
+    c.title.toLowerCase().includes(query.trim().toLowerCase())
+  );
 
   return (
     <section id="categories" className="py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between mb-4">
           <h2 className="text-2xl font-semibold">Danh mục sản phẩm</h2>
-          <a
-            className="text-sm text-brand-700 hover:underline"
-            href="#featured"
-          >
+          <a className="text-sm text-brand-700 hover:underline" href="#featured">
             Xem tất cả
           </a>
         </div>
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 max-w-3xl">
-          {categories.map((c) => (
-            <a
-              key={c.category}
-              href={`#featured?category=${c.category}`}
-              className={`group relative overflow-hidden rounded-xl ${c.color} p-8 border hover:shadow-lg transition cursor-pointer`}
-            >
-              <div
-                className={`absolute top-4 right-4 h-4 w-4 rounded-full ${c.dot}`}
-              />
-              <div className="text-6xl mb-4">{c.icon}</div>
-              <div className="text-2xl font-bold mb-2">{c.title}</div>
-              <div className="text-sm text-gray-600 mb-4">
-                Khám phá các sản phẩm {c.title.toLowerCase()} mới nhất
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Sidebar: tìm kiếm + danh sách */}
+          <div className="md:col-span-1">
+            <div className="sticky top-24">
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-700">Tìm danh mục</label>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="mt-2 w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  placeholder="Tìm laptop, điện thoại..."
+                />
               </div>
-              <div className="text-sm font-medium text-brand-700 group-hover:underline">
-                Xem ngay →
+
+              <div className="bg-white rounded-xl border p-4">
+                <h3 className="text-sm font-medium mb-3">Danh mục</h3>
+                <ul className="space-y-2">
+                  {filtered.map((c) => (
+                    <li key={c.slug}>
+                      <button
+                        onClick={() => setSelected(c.slug === selected ? null : c.slug)}
+                        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                          selected === c.slug
+                            ? "bg-brand-50 border border-brand-200"
+                            : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`h-9 w-9 rounded-md flex items-center justify-center text-lg ${c.color}`}>
+                            {c.icon}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium">{c.title}</div>
+                            <div className="text-xs text-gray-500">{c.description}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">{c.count}</span>
+                          {selected === c.slug ? (
+                            <svg className="w-4 h-4 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </a>
-          ))}
+            </div>
+          </div>
+
+          {/* Card grid */}
+          <div className="md:col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {categories
+                .filter((c) => !query || c.title.toLowerCase().includes(query.toLowerCase()))
+                .map((c) => (
+                  <div
+                    key={c.slug}
+                    className={`relative rounded-xl p-6 border bg-white hover:shadow-lg transition transform ${
+                      selected && selected !== c.slug ? "opacity-60" : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`flex items-center justify-center h-14 w-14 rounded-lg text-2xl ${c.color}`}>{c.icon}</div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-lg font-semibold">{c.title}</div>
+                            <div className="text-sm text-gray-500">{c.description}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500">Số lượng</div>
+                            <div className="text-xl font-bold text-gray-800">{c.count}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-3">
+                          <a
+                            href={`#featured?category=${c.slug}`}
+                            className="text-sm text-brand-700 font-medium hover:underline"
+                          >
+                            Xem sản phẩm →
+                          </a>
+                          <button
+                            onClick={() => setSelected(c.slug === selected ? null : c.slug)}
+                            className={`ml-auto inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border ${
+                              selected === c.slug ? "bg-brand-600 text-white border-transparent" : "bg-white text-gray-700"
+                            }`}
+                          >
+                            {selected === c.slug ? "Đã chọn" : "Chọn"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>

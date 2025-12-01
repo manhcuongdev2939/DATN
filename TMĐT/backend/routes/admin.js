@@ -11,6 +11,7 @@ const router = express.Router();
 router.post('/login', async (req, res, next) => {
   try {
     const { Ten_dang_nhap, Mat_khau } = req.body;
+    console.log('/admin/login attempt', { Ten_dang_nhap });
 
     const [rows] = await pool.query(
       'SELECT ID_Admin, Ten_dang_nhap, Mat_khau_hash, Ho_ten, Email, Vai_tro, Trang_thai FROM nguoi_dung_admin WHERE Ten_dang_nhap = ?',
@@ -18,17 +19,20 @@ router.post('/login', async (req, res, next) => {
     );
 
     if (rows.length === 0) {
+      console.log('/admin/login: admin not found', { Ten_dang_nhap });
       return errorResponse(res, 'Tên đăng nhập hoặc mật khẩu không đúng', 401);
     }
 
     const admin = rows[0];
 
     if (admin.Trang_thai !== 'active') {
+      console.log('/admin/login: admin locked', { id: admin.ID_Admin, status: admin.Trang_thai });
       return errorResponse(res, 'Tài khoản admin đã bị khóa', 403);
     }
 
     const valid = await bcrypt.compare(Mat_khau, admin.Mat_khau_hash);
     if (!valid) {
+      console.log('/admin/login: invalid password for', { Ten_dang_nhap });
       return errorResponse(res, 'Tên đăng nhập hoặc mật khẩu không đúng', 401);
     }
 
@@ -37,9 +41,10 @@ router.post('/login', async (req, res, next) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     );
-
+    console.log('/admin/login: success', { id: admin.ID_Admin, username: admin.Ten_dang_nhap, tokenLength: token.length });
     return successResponse(res, { token, admin: { ID_Admin: admin.ID_Admin, Ten_dang_nhap: admin.Ten_dang_nhap, Ho_ten: admin.Ho_ten, Email: admin.Email, Vai_tro: admin.Vai_tro } });
   } catch (error) {
+    console.error('/admin/login error', error && error.message);
     next(error);
   }
 });
@@ -49,6 +54,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/users', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const { page = 1, limit = 20, search } = req.query;
+    console.log('/admin/users', { page, limit, search });
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(200, Number(limit) || 20);
     const offset = (safePage - 1) * safeLimit;
@@ -66,8 +72,10 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res, next) => 
     const [countRes] = await pool.query('SELECT COUNT(*) as total FROM khach_hang');
     const total = countRes[0].total;
 
+    console.log('/admin/users: returning', { returned: rows.length, total });
     return successResponse(res, { users: rows }, { pagination: { page: safePage, limit: safeLimit, total, totalPages: Math.ceil(total / safeLimit) } });
   } catch (error) {
+    console.error('/admin/users error', error && error.message);
     next(error);
   }
 });
@@ -76,6 +84,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res, next) => 
 router.get('/orders', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status } = req.query;
+    console.log('/admin/orders', { page, limit, status });
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(200, Number(limit) || 20);
     const offset = (safePage - 1) * safeLimit;
@@ -93,8 +102,10 @@ router.get('/orders', authenticateToken, requireAdmin, async (req, res, next) =>
     const [countRes] = await pool.query('SELECT COUNT(*) as total FROM don_hang');
     const total = countRes[0].total;
 
+    console.log('/admin/orders: returning', { returned: rows.length, total });
     return successResponse(res, { orders: rows }, { pagination: { page: safePage, limit: safeLimit, total, totalPages: Math.ceil(total / safeLimit) } });
   } catch (error) {
+    console.error('/admin/orders error', error && error.message);
     next(error);
   }
 });
@@ -103,6 +114,7 @@ router.get('/orders', authenticateToken, requireAdmin, async (req, res, next) =>
 router.get('/products', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const { page = 1, limit = 20, search } = req.query;
+    console.log('/admin/products', { page, limit, search });
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(200, Number(limit) || 20);
     const offset = (safePage - 1) * safeLimit;
@@ -120,8 +132,10 @@ router.get('/products', authenticateToken, requireAdmin, async (req, res, next) 
     const [countRes] = await pool.query('SELECT COUNT(*) as total FROM san_pham');
     const total = countRes[0].total;
 
+    console.log('/admin/products: returning', { returned: rows.length, total });
     return successResponse(res, { products: rows }, { pagination: { page: safePage, limit: safeLimit, total, totalPages: Math.ceil(total / safeLimit) } });
   } catch (error) {
+    console.error('/admin/products error', error && error.message);
     next(error);
   }
 });

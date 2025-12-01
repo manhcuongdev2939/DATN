@@ -26,6 +26,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
+// Basic startup logs to help debugging
+console.log('Starting backend app', {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  logLevel: process.env.LOG_LEVEL || 'info',
+  corsOrigins: process.env.CORS_ORIGINS || 'default',
+});
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
   : ['http://localhost:5173'];
@@ -66,6 +72,7 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/api/health', (req, res) => {
+  console.log('/api/health requested');
   res.json({ status: 'ok', db: pool ? 'connected' : 'unknown' });
 });
 
@@ -91,4 +98,15 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 API running on http://localhost:${PORT}`);
+  console.log('DB pool present:', !!pool);
 });
+
+process.on('unhandledRejection', (reason, p) => {
+  console.error('Unhandled Rejection at:', p, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+  process.exit(1);
+});
+

@@ -9,6 +9,11 @@ INSERT INTO danh_muc (Ten_danh_muc, Mo_ta, Trang_thai) VALUES
 ('Tablet', 'Máy tính bảng', 'active'),
 ('Phụ kiện', 'Phụ kiện điện tử', 'active'),
 ('Đồng hồ thông minh', 'Smartwatch và đồng hồ thông minh', 'active');
+-- Thêm 3 danh mục mới
+INSERT INTO danh_muc (Ten_danh_muc, Mo_ta, Trang_thai) VALUES
+('Âm thanh', 'Loa, tai nghe, thiết bị âm thanh', 'active'),
+('Màn hình', 'Màn hình máy tính và màn hình ngoài', 'active'),
+('Máy chơi game', 'Console và phụ kiện chơi game', 'active');
 
 -- 2. Thêm sản phẩm mẫu
 INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai) VALUES
@@ -27,6 +32,42 @@ INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Da
 ('HP Spectre x360', 'HP Spectre x360 - Intel Core i7, 16GB RAM, 1TB SSD', 27990000, 29990000, 12, 2, 'https://via.placeholder.com/300', 'active'),
 ('Asus ZenBook 14', 'Asus ZenBook 14 - AMD Ryzen 7, 16GB RAM, 512GB SSD', 20990000, 22990000, 25, 2, 'https://via.placeholder.com/300', 'active'),
 ('Lenovo ThinkPad X1', 'Lenovo ThinkPad X1 Carbon - Intel Core i7, 16GB RAM', 31990000, 33990000, 10, 2, 'https://via.placeholder.com/300', 'active');
+
+-- Sản phẩm mẫu cho 3 danh mục mới (tham chiếu theo Ten_danh_muc để tránh lỗi FK nếu ID khác)
+-- Âm thanh
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'Sony WH-1000XM5', 'Tai nghe chống ồn Sony WH-1000XM5', 6990000, 7990000, 40, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Âm thanh';
+
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'Bose QuietComfort 45', 'Tai nghe Bose QC45 chống ồn', 5490000, 6490000, 30, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Âm thanh';
+
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'JBL Flip 6', 'Loa Bluetooth JBL Flip 6', 1490000, 1799000, 60, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Âm thanh';
+
+-- Màn hình
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'Dell UltraSharp U2720Q', 'Màn hình 27" 4K IPS', 12990000, 14990000, 12, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Màn hình';
+
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'LG UltraGear 27GL850', 'Màn hình gaming 27" 144Hz', 7990000, 9990000, 20, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Màn hình';
+
+-- Máy chơi game
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'PlayStation 5', 'Sony PlayStation 5 Console', 13990000, 14990000, 10, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Máy chơi game';
+
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'Xbox Series X', 'Microsoft Xbox Series X 1TB', 12990000, 13990000, 8, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Máy chơi game';
+
+INSERT INTO san_pham (Ten_san_pham, Mo_ta, Gia, Gia_goc, So_luong_ton_kho, ID_Danh_muc, Thumbnail, Trang_thai)
+SELECT 'Nintendo Switch OLED', 'Nintendo Switch OLED model', 8990000, 9990000, 15, dm.ID_Danh_muc, 'https://via.placeholder.com/300', 'active'
+FROM danh_muc dm WHERE dm.Ten_danh_muc = 'Máy chơi game';
 
 -- 3. Thêm hình ảnh sản phẩm
 INSERT INTO hinh_anh_san_pham (ID_San_pham, URL_hinh_anh, Thu_tu) VALUES
