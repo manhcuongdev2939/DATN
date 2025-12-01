@@ -22,11 +22,10 @@ export default function SearchResults() {
     try {
       setLoading(true);
       setError('');
-      const data = await productsAPI.getAll({ search: query });
-      const productsArray = Array.isArray(data) ? data : (data.products || []);
-      setProducts(productsArray);
+      const { products: foundProducts } = await productsAPI.getAll({ search: query });
+      setProducts(Array.isArray(foundProducts) ? foundProducts : []);
     } catch (err) {
-      setError('Không thể tìm kiếm sản phẩm');
+      setError(err.message || 'Không thể tìm kiếm sản phẩm');
       setProducts([]);
     } finally {
       setLoading(false);

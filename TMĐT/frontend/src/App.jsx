@@ -10,7 +10,11 @@ import UserDashboard from './components/UserDashboard';
 import SearchResults from './components/SearchResults';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
-import { authAPI, cartAPI, ordersAPI } from './utils/api';
+import AdminLogin from './admin/AdminLogin';
+import AdminDashboard from './admin/AdminDashboard';
+import Contact from './components/Contact';
+import News from './components/News';
+import { authAPI, cartAPI, ordersAPI, productsAPI } from './utils/api';
 
 function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
   const navigate = useNavigate();
@@ -57,30 +61,42 @@ function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
 
           {/* Navigation - Hidden on mobile */}
           <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-brand-50 transition-colors"
             >
               Trang chủ
             </Link>
-            <a 
-              href="#categories" 
+            <a
+              href="#categories"
               className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-brand-50 transition-colors"
             >
               Danh mục
             </a>
-            <a 
-              href="#featured?category=laptop" 
+            <a
+              href="#featured?category=laptop"
               className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-brand-50 transition-colors"
             >
               Laptop
             </a>
-            <a 
-              href="#featured?category=phone" 
+            <a
+              href="#featured?category=phone"
               className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-brand-50 transition-colors"
             >
               Điện thoại
             </a>
+            <Link
+              to="/news"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+            >
+              Tin tức
+            </Link>
+            <Link
+              to="/contact"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+            >
+              Liên hệ
+            </Link>
           </nav>
 
           {/* Search & Actions */}
@@ -344,14 +360,9 @@ function Featured() {
       try {
         setLoading(true);
         setError('');
-        const url = selectedCategory 
-          ? `http://localhost:3001/api/products?category=${selectedCategory}`
-          : 'http://localhost:3001/api/products';
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('Failed to load products');
-        const data = await res.json();
-        // Handle both array response and object with products property
-        const productsArray = Array.isArray(data) ? data : (data.products || []);
+        const params = selectedCategory ? { category: selectedCategory } : {};
+        const { products: rawProducts } = await productsAPI.getAll(params);
+        const productsArray = Array.isArray(rawProducts) ? rawProducts : [];
         // Transform API field names to frontend expected format
         const transformedProducts = productsArray.map((p) => ({
           id: p.ID_San_pham || p.id,
@@ -368,7 +379,7 @@ function Featured() {
         }));
         setProducts(transformedProducts);
       } catch (e) {
-        setError('Không tải được sản phẩm.');
+        setError(e.message || 'Không tải được sản phẩm.');
         setProducts([]); // Ensure products is always an array
       } finally {
         setLoading(false);
@@ -570,6 +581,12 @@ function Footer() {
               </li>
               <li>
                 <Link to="/search" className="hover:text-white transition-colors">Tìm kiếm</Link>
+              </li>
+              <li>
+                <Link to="/news" className="hover:text-white transition-colors">Tin tức</Link>
+              </li>
+              <li>
+                <Link to="/contact" className="hover:text-white transition-colors">Liên hệ</Link>
               </li>
             </ul>
           </div>
@@ -857,6 +874,10 @@ export default function App() {
           <Route path="/orders" element={<Orders user={user} />} />
           <Route path="/order-success/:id" element={<OrderSuccess />} />
           <Route path="/dashboard" element={<UserDashboard user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />} />
+          <Route path="/news" element={<News />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/*" element={<AdminDashboard />} />
         </Routes>
       </main>
       {!isAuthPage && <Footer />}

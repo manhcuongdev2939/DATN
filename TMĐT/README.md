@@ -18,6 +18,7 @@ Hệ thống thương mại điện tử đầy đủ với các chức năng:
 ```bash
 cd TMĐT/backend
 npm install
+npm run setup:env # tạo file .env từ ENV_EXAMPLE.txt nếu chưa có
 ```
 
 ### 2. Frontend
@@ -34,15 +35,9 @@ npm install
 CREATE DATABASE ecommerce;
 ```
 
-2. Copy file `.env`:
-```bash
-cd TMĐT/backend
-cp ENV_EXAMPLE.txt .env
-```
+2. Cập nhật thông tin database trong file `.env` (có thể chạy `npm run setup:env` để tạo nhanh từ `ENV_EXAMPLE.txt`)
 
-3. Cập nhật thông tin database trong file `.env`
-
-4. Chạy migration:
+3. Chạy migration:
 ```sql
 -- Chạy file: TMĐT/backend/sql/01_create_tables.sql
 -- Sau đó chạy: TMĐT/backend/sql/02_seed_data.sql (nếu cần dữ liệu mẫu)
@@ -62,7 +57,7 @@ Backend sẽ chạy tại: http://localhost:3001
 cd TMĐT/frontend
 npm run dev
 ```
-Frontend sẽ chạy tại: http://localhost:5173
+Frontend sẽ chạy tại: http://localhost:5173 (cập nhật `VITE_API_BASE_URL` trong `frontend/env.sample` khi cần)
 
 ## API Endpoints
 
@@ -72,8 +67,11 @@ Frontend sẽ chạy tại: http://localhost:5173
 - `GET /api/auth/me` - Lấy thông tin user hiện tại
 
 ### Products
-- `GET /api/products` - Lấy danh sách sản phẩm (có phân trang, lọc, tìm kiếm)
+- `GET /api/products` - Lấy danh sách sản phẩm (có phân trang, lọc, tìm kiếm) với response chuẩn hóa
 - `GET /api/products/:id` - Lấy chi tiết sản phẩm
+
+### Uploads
+- `POST /api/uploads/product-image` - Upload hình ảnh sản phẩm (multipart/form-data, field `image`)
 
 ### Categories
 - `GET /api/categories` - Lấy danh sách danh mục
@@ -111,7 +109,7 @@ Frontend sẽ chạy tại: http://localhost:5173
 
 ## Database Schema
 
-Hệ thống sử dụng 15 bảng chính:
+Hệ thống sử dụng 16 bảng chính:
 - `danh_muc` - Danh mục sản phẩm
 - `san_pham` - Sản phẩm
 - `hinh_anh_san_pham` - Hình ảnh sản phẩm
@@ -127,6 +125,7 @@ Hệ thống sử dụng 15 bảng chính:
 - `wishlist` - Danh sách yêu thích
 - `thong_bao` - Thông báo
 - `nguoi_dung_admin` - Người dùng quản trị
+- `otp_codes` - Lưu trữ OTP đăng nhập/đăng ký
 
 ## Lưu ý
 
@@ -134,6 +133,8 @@ Hệ thống sử dụng 15 bảng chính:
 - JWT token được sử dụng cho authentication
 - API endpoints yêu cầu đăng nhập sẽ cần header: `Authorization: Bearer <token>`
 - Thay đổi `JWT_SECRET` trong file `.env` khi deploy production
+- API backend đã bật rate limiting, logging (Pino) và CORS whitelist qua biến `CORS_ORIGINS`
+- Sử dụng endpoint upload mới cho hình ảnh sản phẩm; file được lưu tại `backend/uploads`
 
 ## Troubleshooting
 

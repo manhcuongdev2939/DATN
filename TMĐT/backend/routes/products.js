@@ -1,23 +1,25 @@
 import express from 'express';
 import pool from '../db.js';
+import { successResponse, errorResponse, buildPagination } from '../utils/response.js';
 
 const router = express.Router();
 
-// Lấy tất cả sản phẩm (có phân trang và lọc)
 router.get('/', async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      category, 
-      minPrice, 
-      maxPrice, 
+    const {
+      page = 1,
+      limit = 20,
+      category,
+      minPrice,
+      maxPrice,
       search,
       sort = 'Ngay_tao',
-      order = 'DESC'
+      order = 'DESC',
     } = req.query;
 
-    const offset = (page - 1) * limit;
+    const safePage = Math.max(1, parseInt(page, 10) || 1);
+    const safeLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (safePage - 1) * safeLimit;
     const params = [];
     let sql = `
       SELECT 
@@ -65,7 +67,7 @@ router.get('/', async (req, res) => {
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     sql += ` ORDER BY sp.${sortField} ${sortOrder} LIMIT ? OFFSET ?`;
-    params.push(Number(limit), offset);
+    params.push(Number(safeLimit), offset);
 
     const [products] = await pool.query(sql, params);
 
@@ -94,27 +96,23 @@ router.get('/', async (req, res) => {
     const [countResult] = await pool.query(countSql, countParams);
     const total = countResult[0].total;
 
-    res.json({
-      products,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / limit)
+    return successResponse(
+      res,
+      { products },
+      {
+        pagination: buildPagination({ page: safePage, limit: safeLimit, total }),
       }
-    });
+    );
   } catch (error) {
     console.error('Get products error:', error);
-    res.status(500).json({ error: 'Lỗi lấy danh sách sản phẩm' });
+    return errorResponse(res, 'Lỗi lấy danh sách sản phẩm');
   }
 });
 
-// Lấy chi tiết sản phẩm
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Lấy thông tin sản phẩm
     const [products] = await pool.query(
       `SELECT 
         sp.*,
@@ -128,16 +126,14 @@ router.get('/:id', async (req, res) => {
     );
 
     if (products.length === 0) {
-      return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+      return errorResponse(res, 'Sản phẩm không tồn tại', 404);
     }
 
-    // Lấy hình ảnh sản phẩm
     const [images] = await pool.query(
       'SELECT * FROM hinh_anh_san_pham WHERE ID_San_pham = ? ORDER BY Thu_tu ASC',
       [id]
     );
 
-    // Lấy đánh giá
     const [reviews] = await pool.query(
       `SELECT 
         dg.*,
@@ -150,16 +146,15 @@ router.get('/:id', async (req, res) => {
       [id]
     );
 
-    res.json({
+    return successResponse(res, {
       product: products[0],
       images,
-      reviews
+      reviews,
     });
   } catch (error) {
     console.error('Get product detail error:', error);
-    res.status(500).json({ error: 'Lỗi lấy chi tiết sản phẩm' });
+    return errorResponse(res, 'Lỗi lấy chi tiết sản phẩm');
   }
 });
 
 export default router;
-

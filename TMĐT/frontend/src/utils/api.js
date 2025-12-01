@@ -1,5 +1,44 @@
-// API utility functions
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE =
+  (import.meta.env.VITE_API_BASE_URL &&
+    import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')) ||
+  `${window.location.origin.replace(/\/$/, '')}/api`;
+
+const buildQueryString = (params = {}) => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, value);
+    }
+  });
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : '';
+};
+
+const parseJsonResponse = async (res) => {
+  let payload = null;
+  try {
+    payload = await res.json();
+  } catch (error) {
+    payload = null;
+  }
+
+  const success = res.ok && payload?.success !== false;
+  if (!success) {
+    const message =
+      payload?.error?.message ||
+      payload?.error ||
+      payload?.message ||
+      res.statusText ||
+      'Yêu cầu thất bại';
+    throw new Error(message);
+  }
+
+  const data = payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
+  return {
+    data,
+    meta: payload?.meta,
+  };
+};
 
 // Helper function to get auth token
 const getToken = () => {
@@ -45,74 +84,112 @@ const authFetch = async (url, options = {}) => {
 // Auth API
 export const authAPI = {
   register: async (data) => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    const result = await res.json();
-    if (res.ok && result.token) {
-      setToken(result.token);
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const { data: result } = await parseJsonResponse(res);
+      if (result?.token) {
+        setToken(result.token);
+      }
+      return result;
+    } catch (error) {
+      return { error: error.message || 'Không thể đăng ký' };
     }
-    return result;
   },
-  
+
   login: async (email, password) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Email: email, Mat_khau: password }),
-    });
-    const result = await res.json();
-    if (res.ok && result.token) {
-      setToken(result.token);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: email, Mat_khau: password }),
+      });
+      const { data } = await parseJsonResponse(res);
+      if (data?.token) {
+        setToken(data.token);
+      }
+      return data;
+    } catch (error) {
+      return { error: error.message || 'Không thể đăng nhập' };
     }
-    return result;
   },
 
   requestOTP: async (email) => {
-    const res = await fetch(`${API_BASE}/auth/request-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Email: email }),
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${API_BASE}/auth/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: email }),
+      });
+      const { data } = await parseJsonResponse(res);
+      return data;
+    } catch (error) {
+      return { error: error.message || 'Không thể gửi OTP' };
+    }
+  },
+
+  requestRegisterOTP: async (email) => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/register-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: email }),
+      });
+      const { data } = await parseJsonResponse(res);
+      return data;
+    } catch (error) {
+      return { error: error.message || 'Không thể gửi OTP đăng ký' };
+    }
   },
 
   loginOTP: async (email, otp) => {
-    const res = await fetch(`${API_BASE}/auth/login-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Email: email, otp }),
-    });
-    const result = await res.json();
-    if (res.ok && result.token) {
-      setToken(result.token);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: email, otp }),
+      });
+      const { data } = await parseJsonResponse(res);
+      if (data?.token) {
+        setToken(data.token);
+      }
+      return data;
+    } catch (error) {
+      return { error: error.message || 'Không thể đăng nhập bằng OTP' };
     }
-    return result;
   },
-  
+
   logout: () => {
     removeToken();
   },
-  
+
   getMe: async () => {
     const res = await authFetch('/auth/me');
-    return res.json();
+    const { data } = await parseJsonResponse(res);
+    return data;
   },
 };
 
 // Products API
 export const productsAPI = {
   getAll: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/products?${query}`);
-    return res.json();
+    const queryString = buildQueryString(params);
+    const res = await fetch(`${API_BASE}/products${queryString}`);
+    const { data, meta } = await parseJsonResponse(res);
+    const products = Array.isArray(data) ? data : data?.products || [];
+    return {
+      products,
+      pagination: meta?.pagination || data?.pagination,
+    };
   },
-  
+
   getById: async (id) => {
     const res = await fetch(`${API_BASE}/products/${id}`);
-    return res.json();
+    const { data } = await parseJsonResponse(res);
+    return data || {};
   },
 };
 
@@ -282,4 +359,78 @@ export const newsletterAPI = {
 };
 
 export { getToken, setToken, removeToken };
+
+// --- Admin token helpers ---
+const ADMIN_TOKEN_KEY = 'admin_token';
+const getAdminToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
+const setAdminToken = (token) => localStorage.setItem(ADMIN_TOKEN_KEY, token);
+const removeAdminToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY);
+
+// admin authenticated fetch
+const adminAuthFetch = async (url, options = {}) => {
+  const token = getAdminToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE}${url}`, {
+    ...options,
+    headers,
+  });
+
+  if (response.status === 401) {
+    removeAdminToken();
+  }
+
+  return response;
+};
+
+export { getAdminToken, setAdminToken, removeAdminToken, adminAuthFetch };
+
+// Admin API
+export const adminAPI = {
+  login: async (username, password) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Ten_dang_nhap: username, Mat_khau: password }),
+      });
+      const { data } = await parseJsonResponse(res);
+      if (data?.token) {
+        setAdminToken(data.token);
+      }
+      return data;
+    } catch (error) {
+      return { error: error.message || 'Không thể đăng nhập admin' };
+    }
+  },
+
+  logout: () => {
+    removeAdminToken();
+  },
+
+  getUsers: async (params = {}) => {
+    const qs = buildQueryString(params);
+    const res = await adminAuthFetch(`/admin/users${qs}`);
+    const { data, meta } = await parseJsonResponse(res);
+    return { users: data?.users || [], meta };
+  },
+
+  getOrders: async (params = {}) => {
+    const qs = buildQueryString(params);
+    const res = await adminAuthFetch(`/admin/orders${qs}`);
+    const { data, meta } = await parseJsonResponse(res);
+    return { orders: data?.orders || [], meta };
+  },
+
+  getProducts: async (params = {}) => {
+    const qs = buildQueryString(params);
+    const res = await adminAuthFetch(`/admin/products${qs}`);
+    const { data, meta } = await parseJsonResponse(res);
+    return { products: data?.products || [], meta };
+  },
+};
 

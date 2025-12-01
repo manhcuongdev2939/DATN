@@ -1,6 +1,11 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// Yêu cầu biến môi trường JWT_SECRET phải được thiết lập
+if (!process.env.JWT_SECRET) {
+  throw new Error('Environment variable JWT_SECRET is required');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware xác thực JWT
 export const authenticateToken = (req, res, next) => {

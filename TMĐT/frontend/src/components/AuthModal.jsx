@@ -91,13 +91,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:3001/api/auth/register-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Email: formData.Email }),
-      });
-      const result = await res.json();
-      if (result.error) {
+      const result = await authAPI.requestRegisterOTP(formData.Email);
+      if (result?.error) {
         setError(result.error);
       } else {
         setOtpSent(true);
@@ -115,6 +110,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     e.preventDefault();
     setError('');
 
+    setLoading(true);
     try {
       let result;
       if (isLogin) {

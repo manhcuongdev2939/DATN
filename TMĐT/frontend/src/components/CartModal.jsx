@@ -78,7 +78,7 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
               {cart.items.map((item) => (
                 <div key={item.ID_Chi_tiet_GH} className="flex gap-4 border-b pb-4">
                   <img
-                    src={item.Thumbnail || 'https://via.placeholder.com/100'}
+                    src={item.Thumbnail || "data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20300%20300'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%23e5e7eb'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20fill='%239ca3af'%20font-size='20'%3ENo%20image%3C/text%3E%3C/svg%3E"}
                     alt={item.Ten_san_pham}
                     className="w-20 h-20 object-cover rounded"
                   />
