@@ -20,6 +20,7 @@ import AdminLogin from "./admin/AdminLogin";
 import AdminDashboard from "./admin/AdminDashboard";
 import Contact from "./components/Contact";
 import News from "./components/News";
+import NewsDetail from "./components/NewsDetail";
 import { authAPI, cartAPI, ordersAPI, productsAPI, categoriesAPI } from "./utils/api";
 
 function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
@@ -1319,6 +1320,7 @@ export default function App() {
             }
           />
           <Route path="/news" element={<News />} />
+          <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/*" element={<AdminDashboard />} />

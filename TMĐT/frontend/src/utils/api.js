@@ -434,3 +434,13 @@ export const adminAPI = {
   },
 };
 
+// News API
+export const newsAPI = {
+  getAll: async () => {
+    const res = await fetch(`${API_BASE}/news`);
+    const { data } = await parseJsonResponse(res);
+    // backend may return array directly or wrapped payload
+    return Array.isArray(data) ? data : (data?.articles || []);
+  },
+};
+
