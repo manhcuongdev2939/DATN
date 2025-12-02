@@ -20,6 +20,7 @@ import newsRoutes from './routes/news.js';
 import contactRoutes from './routes/contacts.js';
 import uploadsRoutes from './routes/uploads.js';
 import adminRoutes from './routes/admin.js';
+import paymentsRoutes, { payosWebhook } from './routes/payments.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,7 +68,12 @@ const logger = pinoHttp({
 
 app.use(logger);
 app.use(cors(corsOptions));
-app.use(globalLimiter);
+// Apply rate limiting only in production by default. For local development, set DISABLE_RATE_LIMIT=true to disable.
+if (process.env.DISABLE_RATE_LIMIT !== 'true' && process.env.NODE_ENV === 'production') {
+  app.use(globalLimiter);
+} else {
+  console.log('Rate limiter disabled for development (DISABLE_RATE_LIMIT=true to force).');
+}
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -91,6 +97,19 @@ app.use('/api/news', newsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/admin', adminRoutes);
+// PayOS webhook needs raw body to verify signature
+app.post('/api/payments/payos/webhook', express.raw({ type: '*/*' }), (req, res, next) => {
+  // attach raw buffer and parse JSON body for handler
+  req.rawBody = req.body;
+  try {
+    req.body = JSON.parse(req.body.toString('utf8'));
+  } catch (e) {
+    req.body = {};
+  }
+  return payosWebhook(req, res, next);
+});
+
+app.use('/api/payments', paymentsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { cartAPI, addressesAPI, vouchersAPI, ordersAPI } from '../utils/api';
+import { cartAPI, addressesAPI, vouchersAPI, ordersAPI, paymentsAPI } from '../utils/api';
 import AddressManagement from './AddressManagement';
 
 export default function Checkout({ user }) {
@@ -129,11 +129,21 @@ export default function Checkout({ user }) {
       };
 
       const result = await ordersAPI.create(orderData);
-      
+
       if (result.error) {
         setError(result.error);
       } else {
-        navigate(`/order-success/${result.order.ID_Don_hang}`);
+        const createdOrderId = result.order.ID_Don_hang;
+        // If bank transfer via PayOS, request transfer info so backend stores payment info
+        if (paymentMethod === 'bank_transfer') {
+          try {
+            await paymentsAPI.createPayosTransfer(createdOrderId);
+          } catch (e) {
+            console.warn('Không thể tạo yêu cầu PayOS:', e);
+          }
+        }
+
+        navigate(`/order-success/${createdOrderId}`);
       }
     } catch (err) {
       setError(err.message || 'Có lỗi xảy ra khi đặt hàng');
@@ -288,6 +298,22 @@ export default function Checkout({ user }) {
                   <div>
                     <div className="font-medium">Thanh toán trực tuyến</div>
                     <div className="text-sm text-gray-600">Thanh toán bằng thẻ tín dụng/ghi nợ</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 p-3 border rounded cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="bank_transfer"
+                    checked={paymentMethod === 'bank_transfer'}
+                    onChange={(e) => {
+                      setPaymentMethod(e.target.value);
+                      setShowCardForm(false);
+                    }}
+                  />
+                  <div>
+                    <div className="font-medium">Chuyển khoản ngân hàng (PayOS)</div>
+                    <div className="text-sm text-gray-600">Nhận thông tin tài khoản để chuyển khoản</div>
                   </div>
                 </label>
               </div>

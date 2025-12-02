@@ -259,6 +259,17 @@ export const ordersAPI = {
   },
 };
 
+// Payments API
+export const paymentsAPI = {
+  createPayosTransfer: async (orderId) => {
+    const res = await authFetch('/payments/payos/transfer', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+    return res.json();
+  },
+};
+
 // Reviews API
 export const reviewsAPI = {
   create: async (data) => {

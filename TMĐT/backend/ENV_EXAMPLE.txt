@@ -21,3 +21,11 @@ SMTP_PASS=ovvx eyyd humk teaq
 # 2. Bật 2-Step Verification
 # 3. Tạo App Password cho "Mail"
 # 4. Sử dụng App Password thay vì mật khẩu thường
+# PayOS configuration (example)
+# Set these values according to your PayOS account
+PAYOS_API_URL=
+PAYOS_API_KEY=
+PAYOS_SECRET=
+PAYOS_MERCHANT_ID=
+# Public callback URL where PayOS will send webhook notifications (e.g. https://yourdomain.com/api/payments/payos/webhook)
+PAYOS_CALLBACK_URL=

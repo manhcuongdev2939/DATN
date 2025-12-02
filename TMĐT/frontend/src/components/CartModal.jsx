@@ -50,15 +50,16 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Giỏ hàng</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-fadeIn">
+        <div className="flex justify-between items-center mb-6 border-b pb-3">
+          <h2 className="text-2xl font-bold tracking-tight">🛒 Giỏ hàng của bạn</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-400 hover:text-red-500 text-2xl font-bold transition"
+            aria-label="Đóng"
           >
-            ✕
+            ×
           </button>
         </div>
 
@@ -69,58 +70,64 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
         )}
 
         {loading ? (
-          <div className="text-center py-8">Đang tải...</div>
+          <div className="text-center py-12 text-lg font-medium text-gray-500">Đang tải...</div>
         ) : cart.items.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">Giỏ hàng trống</div>
+          <div className="text-center py-12 text-gray-400 text-lg">Giỏ hàng trống</div>
         ) : (
           <>
             <div className="space-y-4">
               {cart.items.map((item) => (
-                <div key={item.ID_Chi_tiet_GH} className="flex gap-4 border-b pb-4">
+                <div key={item.ID_Chi_tiet_GH} className="flex flex-col sm:flex-row gap-4 items-center bg-gray-50 rounded-xl p-4 shadow-sm hover:shadow-md transition border">
                   <img
                     src={item.Thumbnail || "data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20300%20300'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%23e5e7eb'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20fill='%239ca3af'%20font-size='20'%3ENo%20image%3C/text%3E%3C/svg%3E"}
                     alt={item.Ten_san_pham}
-                    className="w-20 h-20 object-cover rounded"
+                    className="w-24 h-24 object-cover rounded-lg border"
                   />
-                  <div className="flex-1">
-                    <h3 className="font-medium">{item.Ten_san_pham}</h3>
-                    <p className="text-sm text-gray-600">
-                      {Number(item.Gia_tai_thoi_diem_them).toLocaleString('vi-VN')}₫
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        onClick={() => handleUpdateQuantity(item.ID_Chi_tiet_GH, item.So_luong - 1)}
-                        className="w-6 h-6 rounded border text-sm"
-                      >
-                        -
-                      </button>
-                      <span className="w-8 text-center">{item.So_luong}</span>
-                      <button
-                        onClick={() => handleUpdateQuantity(item.ID_Chi_tiet_GH, item.So_luong + 1)}
-                        className="w-6 h-6 rounded border text-sm"
-                      >
-                        +
-                      </button>
-                      <button
-                        onClick={() => handleRemove(item.ID_Chi_tiet_GH)}
-                        className="ml-auto text-red-600 text-sm hover:underline"
-                      >
-                        Xóa
-                      </button>
+                  <div className="flex-1 w-full">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <h3 className="font-semibold text-lg mb-1">{item.Ten_san_pham}</h3>
+                        <div className="text-sm text-gray-500 mb-1">Đơn giá: <span className="font-medium text-brand-600">{Number(item.Gia_tai_thoi_diem_them).toLocaleString('vi-VN')}₫</span></div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                        <button
+                          onClick={() => handleUpdateQuantity(item.ID_Chi_tiet_GH, item.So_luong - 1)}
+                          className="w-8 h-8 rounded-full border border-gray-300 bg-white text-lg font-bold flex items-center justify-center hover:bg-gray-200 transition"
+                          aria-label="Giảm số lượng"
+                        >
+                          –
+                        </button>
+                        <span className="w-10 text-center text-base font-semibold">{item.So_luong}</span>
+                        <button
+                          onClick={() => handleUpdateQuantity(item.ID_Chi_tiet_GH, item.So_luong + 1)}
+                          className="w-8 h-8 rounded-full border border-gray-300 bg-white text-lg font-bold flex items-center justify-center hover:bg-gray-200 transition"
+                          aria-label="Tăng số lượng"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => {
+                            if(window.confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?')) handleRemove(item.ID_Chi_tiet_GH);
+                          }}
+                          className="ml-2 text-red-500 hover:bg-red-100 rounded-full p-2 transition"
+                          aria-label="Xóa sản phẩm"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">
-                      {Number(item.Thanh_tien).toLocaleString('vi-VN')}₫
-                    </p>
+                    <div className="text-right mt-2">
+                      <span className="text-base text-gray-600">Thành tiền: </span>
+                      <span className="text-lg font-bold text-brand-700">{Number(item.Thanh_tien).toLocaleString('vi-VN')}₫</span>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-6 pt-4 border-t">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-lg font-semibold">Tổng cộng:</span>
-                <span className="text-xl font-bold text-brand-600">
+            <div className="mt-8 pt-6 border-t">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                <span className="text-xl font-semibold">Tổng cộng:</span>
+                <span className="text-2xl font-bold text-brand-600">
                   {Number(cart.total).toLocaleString('vi-VN')}₫
                 </span>
               </div>
@@ -129,9 +136,9 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
                   onClose();
                   navigate('/checkout');
                 }}
-                className="w-full rounded bg-brand-600 text-white py-2 hover:bg-brand-700"
+                className="w-full rounded-full bg-brand-600 text-white py-3 text-lg font-semibold shadow hover:bg-brand-700 transition"
               >
-                Thanh toán
+                Thanh toán ngay
               </button>
             </div>
           </>
