@@ -72,6 +72,38 @@ export default function OrderSuccess() {
             </div>
           )}
 
+          {order && order.payment && order.payment.Phuong_thuc === 'bank_transfer' && (
+            <div className="bg-white rounded-lg p-6 mb-6 text-left">
+              <h3 className="font-semibold mb-3">Hướng dẫn chuyển khoản</h3>
+              {(() => {
+                try {
+                  const info = typeof order.payment.Thong_tin_them === 'string' ? JSON.parse(order.payment.Thong_tin_them) : order.payment.Thong_tin_them;
+                  return (
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <strong>Ngân hàng:</strong> {info.bank_name}
+                      </div>
+                      <div>
+                        <strong>Số tài khoản:</strong> {info.account_number}
+                      </div>
+                      <div>
+                        <strong>Chủ tài khoản:</strong> {info.account_holder}
+                      </div>
+                      <div className="break-words">
+                        <strong>Ghi chú chuyển khoản:</strong> {info.payment_ref}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-2">
+                        {info.instructions}
+                      </div>
+                    </div>
+                  );
+                } catch (e) {
+                  return <div className="text-sm text-gray-600">Không có thông tin chuyển khoản.</div>;
+                }
+              })()}
+            </div>
+          )}
+
           <div className="flex gap-4 justify-center">
             <button
               onClick={() => navigate('/orders')}

@@ -299,103 +299,131 @@ function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
 }
 
 function Hero({ user }) {
+  const slides = [
+    {
+      id: 1,
+      title: user ? `Xin chào, ${user.Ten_khach_hang || 'Bạn'}!` : 'Laptop & Điện thoại chính hãng',
+      subtitle: user
+        ? 'Ưu đãi cá nhân cho bạn - cập nhật hàng tuần'
+        : 'Khám phá bộ sưu tập laptop và điện thoại mới nhất. Giá tốt, giao hàng nhanh.',
+      cta: 'Mua ngay',
+    },
+    {
+      id: 2,
+      title: 'Giảm giá đến 30% cho máy tính xách tay',
+      subtitle: 'Chọn máy tính phù hợp cho công việc và giải trí',
+      cta: 'Xem ưu đãi',
+    },
+    {
+      id: 3,
+      title: 'Chuẩn bị cho mùa học mới',
+      subtitle: 'Đồ dùng công nghệ cần thiết với giá tốt',
+      cta: 'Khám phá',
+    },
+  ];
+
+  const [index, setIndex] = React.useState(0);
+  const [paused, setPaused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => {
+      setIndex((i) => (i + 1) % slides.length);
+    }, 4500);
+    return () => clearInterval(t);
+  }, [paused]);
+
+  const go = (i) => setIndex(((i % slides.length) + slides.length) % slides.length);
+
   return (
     <section className="relative bg-gradient-to-br from-brand-50 via-white to-brand-50 overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Decorative blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000" />
-        <div className="absolute top-40 left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+      <div
+        className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-24"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="text-center md:text-left">
-            {user ? (
-              <>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-100 text-brand-700 text-sm font-medium mb-4">
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Chào mừng trở lại!</span>
-                </div>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-gray-900 mb-4">
-                  Xin chào, {user.Ten_khach_hang || "Bạn"}! 👋
-                </h1>
-                <p className="text-lg text-gray-600 mb-6">
-                  Khám phá những sản phẩm công nghệ mới nhất với ưu đãi đặc biệt
-                  dành cho bạn.
-                </p>
-              </>
-            ) : (
-              <>
-                <span className="inline-block text-xs font-semibold tracking-widest text-brand-700 bg-brand-100 rounded-full px-4 py-1.5 mb-4">
-                  TECH STORE
-                </span>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-gray-900 mb-4">
-                  Laptop & Điện thoại
-                  <br />
-                  chính hãng
-                </h1>
-                <p className="text-lg text-gray-600 mb-6">
-                  Khám phá bộ sưu tập laptop và điện thoại mới nhất. Giá tốt,
-                  giao hàng nhanh, đổi trả dễ dàng.
-                </p>
-              </>
-            )}
-            <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-              <a
-                href="#featured"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white px-6 py-3 text-base font-semibold hover:from-brand-700 hover:to-brand-600 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+            <div className="mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-100 text-brand-700 text-sm font-medium">
+                TECH STORE
+              </div>
+            </div>
+
+            <div className="overflow-hidden">
+              <div
+                className="flex transition-transform duration-700"
+                style={{ transform: `translateX(-${index * 100}%)` }}
               >
-                <span>Mua ngay</span>
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                {slides.map((s, i) => (
+                  <div key={s.id} className="min-w-full pr-6">
+                    <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-gray-900 mb-4">
+                      {s.title}
+                    </h2>
+                    <p className="text-lg text-gray-600 mb-6">{s.subtitle}</p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+                      <a
+                        href="#featured"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white px-6 py-3 text-base font-semibold hover:from-brand-700 hover:to-brand-600 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+                      >
+                        <span>{s.cta}</span>
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 7l5 5m0 0l-5 5m5-5H6"
+                          />
+                        </svg>
+                      </a>
+                      <a
+                        href="#categories"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-gray-300 text-gray-700 px-6 py-3 text-base font-semibold hover:border-brand-500 hover:text-brand-600 bg-white transition-all"
+                      >
+                        <span>Khám phá</span>
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Dots */}
+              <div className="mt-6 flex items-center gap-2 justify-center md:justify-start">
+                {slides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => go(i)}
+                    className={`h-2 w-8 rounded-full transition-all ${
+                      i === index ? 'bg-brand-600 w-10' : 'bg-gray-300'
+                    }`}
+                    aria-label={`Go to slide ${i + 1}`}
                   />
-                </svg>
-              </a>
-              <a
-                href="#categories"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-gray-300 text-gray-700 px-6 py-3 text-base font-semibold hover:border-brand-500 hover:text-brand-600 bg-white transition-all"
-              >
-                <span>Khám phá</span>
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </a>
+                ))}
+              </div>
             </div>
           </div>
+
           <div className="relative hidden md:block">
             <div className="relative">
-              <div className="aspect-[4/3] rounded-3xl bg-gradient-to-tr from-brand-600 via-brand-500 to-brand-400 shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-300" />
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-brand-600 via-brand-500 to-brand-400 shadow-2xl transform -rotate-3 opacity-20" />
+              <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
+                <div
+                  className="h-full w-full bg-cover bg-center transform transition-transform duration-700"
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, rgba(79,70,229,0.85), rgba(6,182,212,0.8)), linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02))`,
+                  }}
+                />
+              </div>
               <div className="absolute -bottom-6 -left-6 h-24 w-24 rounded-2xl bg-white shadow-xl flex items-center justify-center">
                 <svg
                   className="w-12 h-12 text-brand-600"
@@ -408,21 +436,6 @@ function Hero({ user }) {
                     strokeLinejoin="round"
                     strokeWidth={2}
                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <div className="absolute -top-6 -right-6 h-32 w-32 rounded-3xl bg-white shadow-xl flex items-center justify-center">
-                <svg
-                  className="w-16 h-16 text-brand-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
               </div>
@@ -442,20 +455,16 @@ function Categories() {
     (async () => {
       try {
         const data = await categoriesAPI.getAll();
-        // data is expected to be an array of category objects from backend
         if (!mounted || !data) return;
         const mapped = (Array.isArray(data) ? data : []).map((c, idx) => ({
           slug: String(c.ID_Danh_muc || c.id || c.ID || idx),
           title: c.Ten_danh_muc || c.title || `Danh mục ${idx + 1}`,
           color: ["bg-blue-50", "bg-purple-50", "bg-green-50"][idx % 3] || "bg-gray-50",
-          accent: ["bg-blue-500", "bg-purple-500", "bg-green-500"][idx % 3] || "bg-gray-500",
           icon: c.Icon || (idx % 3 === 0 ? "💻" : idx % 3 === 1 ? "📱" : "🎧"),
-          description: c.Mo_ta || c.Mo_ta_danh_muc || "",
           count: Number(c.So_luong_san_pham || c.count || 0),
         }));
         setCategories(mapped);
       } catch (err) {
-        // fallback: keep categories empty
         console.error('Load categories failed', err && err.message);
       }
     })();
@@ -464,127 +473,32 @@ function Categories() {
     };
   }, []);
 
-  const [query, setQuery] = React.useState("");
-  const [selected, setSelected] = React.useState(null);
-
-  const filtered = categories.filter((c) =>
-    c.title.toLowerCase().includes(query.trim().toLowerCase())
-  );
-
   return (
     <section id="categories" className="py-14">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-end justify-between mb-4">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold">Danh mục sản phẩm</h2>
           <a className="text-sm text-brand-700 hover:underline" href="#featured">
             Xem tất cả
           </a>
         </div>
-
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Sidebar: tìm kiếm + danh sách */}
-          <div className="md:col-span-1">
-            <div className="sticky top-24">
-              <div className="mb-4">
-                <label className="text-sm font-medium text-gray-700">Tìm danh mục</label>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="mt-2 w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  placeholder="Tìm laptop, điện thoại..."
-                />
-              </div>
-
-              <div className="bg-white rounded-xl border p-4">
-                <h3 className="text-sm font-medium mb-3">Danh mục</h3>
-                <ul className="space-y-2">
-                  {filtered.map((c) => (
-                    <li key={c.slug}>
-                      <button
-                        onClick={() => setSelected(c.slug === selected ? null : c.slug)}
-                        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                          selected === c.slug
-                            ? "bg-brand-50 border border-brand-200"
-                            : "hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-md flex items-center justify-center text-lg ${c.color}`}>
-                            {c.icon}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium">{c.title}</div>
-                            <div className="text-xs text-gray-500">{c.description}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">{c.count}</span>
-                          {selected === c.slug ? (
-                            <svg className="w-4 h-4 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {categories.map((c) => (
+            <div
+              key={c.slug}
+              className="rounded-xl p-6 border bg-white hover:shadow-md transition flex flex-col items-center text-center"
+            >
+              <div className={`flex items-center justify-center h-16 w-16 rounded-lg text-3xl mb-3 ${c.color}`}>{c.icon}</div>
+              <div className="font-semibold text-lg mb-1">{c.title}</div>
+              <div className="text-sm text-gray-500 mb-2">Số lượng sản phẩm: <span className="font-bold text-gray-700">{c.count}</span></div>
+              <a
+                href={`#featured?category=${c.slug}`}
+                className="inline-block mt-2 px-4 py-2 rounded-full bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition"
+              >
+                Xem sản phẩm
+              </a>
             </div>
-          </div>
-
-          {/* Card grid */}
-          <div className="md:col-span-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {categories
-                .filter((c) => !query || c.title.toLowerCase().includes(query.toLowerCase()))
-                .map((c) => (
-                  <div
-                    key={c.slug}
-                    className={`relative rounded-xl p-6 border bg-white hover:shadow-lg transition transform ${
-                      selected && selected !== c.slug ? "opacity-60" : ""
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`flex items-center justify-center h-14 w-14 rounded-lg text-2xl ${c.color}`}>{c.icon}</div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-lg font-semibold">{c.title}</div>
-                            <div className="text-sm text-gray-500">{c.description}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm text-gray-500">Số lượng</div>
-                            <div className="text-xl font-bold text-gray-800">{c.count}</div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex items-center gap-3">
-                          <a
-                            href={`#featured?category=${c.slug}`}
-                            className="text-sm text-brand-700 font-medium hover:underline"
-                          >
-                            Xem sản phẩm →
-                          </a>
-                          <button
-                            onClick={() => setSelected(c.slug === selected ? null : c.slug)}
-                            className={`ml-auto inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border ${
-                              selected === c.slug ? "bg-brand-600 text-white border-transparent" : "bg-white text-gray-700"
-                            }`}
-                          >
-                            {selected === c.slug ? "Đã chọn" : "Chọn"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
@@ -656,10 +570,11 @@ function Featured() {
 
         {!loading && !error && Array.isArray(products) && (
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {products.map((p) => (
+            {products.map((p, idx) => (
               <div
                 key={p.id}
-                className="rounded-xl bg-white border hover:shadow-lg transition"
+                className="rounded-xl bg-white border hover:shadow-lg transition animate-fade-in"
+                style={{ animationDelay: `${idx * 80}ms` }}
               >
                 <div className="aspect-square rounded-t-xl bg-gray-100 overflow-hidden">
                   {p.image_url ? (
