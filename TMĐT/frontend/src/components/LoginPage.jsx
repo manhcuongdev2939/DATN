@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { authAPI } from '../utils/api';
+import { authAPI, getToken, getAdminToken } from '../utils/api';
 
 export default function LoginPage({ onSuccess }) {
   const navigate = useNavigate();
@@ -9,6 +9,7 @@ export default function LoginPage({ onSuccess }) {
   // Get email from URL params if coming from register page
   const urlParams = new URLSearchParams(location.search);
   const emailFromUrl = urlParams.get('email');
+  const loginType = urlParams.get('type') || 'customer'; // 'customer' or 'admin'
   
   const [formData, setFormData] = useState({
     Email: emailFromUrl || '',
@@ -21,65 +22,66 @@ export default function LoginPage({ onSuccess }) {
       setFormData(prev => ({ ...prev, Email: emailFromUrl }));
     }
   }, [emailFromUrl]);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (loginType === 'admin' && getAdminToken()) {
+      navigate('/admin');
+    } else if (loginType === 'customer' && getToken()) {
+      navigate('/');
+    }
+  }, [loginType, navigate]);
+
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) {
-      setEmailError('Vui lòng nhập email');
-      return false;
-    }
-    if (!emailRegex.test(email)) {
-      setEmailError('Email không hợp lệ');
-      return false;
-    }
-    setEmailError('');
-    return true;
-  };
-
-  const validatePassword = (password) => {
-    if (!password) {
-      setPasswordError('Vui lòng nhập mật khẩu');
-      return false;
-    }
-    if (password.length < 6) {
-      setPasswordError('Mật khẩu phải có ít nhất 6 ký tự');
-      return false;
-    }
-    setPasswordError('');
-    return true;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setEmailError('');
+    setPasswordError('');
     
-    const isEmailValid = validateEmail(formData.Email);
-    const isPasswordValid = validatePassword(formData.Mat_khau);
-    
-    if (!isEmailValid || !isPasswordValid) {
-      return;
+    // --- Validation logic moved inside handleSubmit ---
+    let isValid = true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.Email || !emailRegex.test(formData.Email)) {
+      setEmailError('Vui lòng nhập một email hợp lệ.');
+      isValid = false;
     }
+    if (!formData.Mat_khau || formData.Mat_khau.length < 6) {
+      setPasswordError('Mật khẩu phải có ít nhất 6 ký tự.');
+      isValid = false;
+    }
+    if (!isValid) return;
 
     setLoading(true);
 
     try {
-      const result = await authAPI.login(formData.Email, formData.Mat_khau);
+      // Chọn API đăng nhập dựa trên loginType
+      const loginFunction = loginType === 'admin' 
+        ? authAPI.adminLogin 
+        : authAPI.login;
 
-      if (result.error) {
-        setError(result.error);
+      const result = await loginFunction(formData.Email, formData.Mat_khau);
+      // Đăng nhập thành công
+      if (onSuccess) {
+        onSuccess(result.user);
+      }
+      // Chuyển hướng đến trang admin dashboard nếu là admin, nếu không thì về trang chủ
+      if (loginType === 'admin') {
+        navigate('/admin');
       } else {
-        if (onSuccess) {
-          onSuccess(result.user);
-        }
         navigate('/');
       }
     } catch (err) {
-      setError('Có lỗi xảy ra. Vui lòng thử lại.');
+      // Sửa lỗi: Đọc thông báo lỗi từ thuộc tính `message` của đối tượng Error
+      const errorMessage = err.message || 'Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.';
+      setError(errorMessage);
+      console.error('Login failed:', err);
     } finally {
       setLoading(false);
     }
@@ -96,10 +98,10 @@ export default function LoginPage({ onSuccess }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Chào mừng trở lại
+            <h2 className="text-3xl font-bold text-gray-900 mb-2 capitalize">
+              {loginType === 'admin' ? 'Admin Login' : 'Chào mừng trở lại'}
             </h2>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 capitalize">
               Đăng nhập để tiếp tục mua sắm
             </p>
           </div>
@@ -142,10 +144,9 @@ export default function LoginPage({ onSuccess }) {
                   required
                   value={formData.Email}
                   onChange={(e) => {
-                    setFormData({ ...formData, Email: e.target.value });
-                    if (emailError) validateEmail(e.target.value);
+                    setFormData(prev => ({ ...prev, Email: e.target.value }));
                   }}
-                  onBlur={() => validateEmail(formData.Email)}
+                  onFocus={() => setEmailError('')}
                   className={`block w-full pl-10 pr-3 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm ${
                     emailError ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white hover:border-gray-400'
                   }`}
@@ -181,10 +182,9 @@ export default function LoginPage({ onSuccess }) {
                   required
                   value={formData.Mat_khau}
                   onChange={(e) => {
-                    setFormData({ ...formData, Mat_khau: e.target.value });
-                    if (passwordError) validatePassword(e.target.value);
+                    setFormData(prev => ({ ...prev, Mat_khau: e.target.value }));
                   }}
-                  onBlur={() => validatePassword(formData.Mat_khau)}
+                  onFocus={() => setPasswordError('')}
                   className={`block w-full pl-10 pr-10 py-3 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm ${
                     passwordError ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white hover:border-gray-400'
                   }`}
@@ -244,23 +244,25 @@ export default function LoginPage({ onSuccess }) {
             </div>
 
             {/* Register Link */}
-            <div className="text-center pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-600 mb-3">
-                Chưa có tài khoản?
-              </p>
-              <Link 
-                to={`/register${formData.Email ? `?email=${encodeURIComponent(formData.Email)}` : ''}`}
-                className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-semibold hover:bg-brand-50 hover:border-brand-700 transition-all group"
-              >
-                <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                <span>Tạo tài khoản mới</span>
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Link>
-            </div>
+            {loginType !== 'admin' && (
+              <div className="text-center pt-6 border-t border-gray-200">
+                <p className="text-sm text-gray-600 mb-3">
+                  Chưa có tài khoản?
+                </p>
+                <Link 
+                  to={`/register${formData.Email ? `?email=${encodeURIComponent(formData.Email)}` : ''}`}
+                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-semibold hover:bg-brand-50 hover:border-brand-700 transition-all group"
+                >
+                  <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  <span>Tạo tài khoản mới</span>
+                  <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </Link>
+              </div>
+            )}
 
             {/* Back to Home */}
             <div className="text-center pt-2">
@@ -277,4 +279,3 @@ export default function LoginPage({ onSuccess }) {
     </div>
   );
 }
-

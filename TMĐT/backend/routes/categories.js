@@ -49,5 +49,29 @@ router.get('/:id/products', async (req, res) => {
   }
 });
 
+// Lấy thông tin một danh mục
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`[DEBUG] Fetching category with ID: ${id}`);
+    const [rows] = await pool.query(
+      `SELECT * FROM danh_muc WHERE ID_Danh_muc = ? AND Trang_thai = 'active'`,
+      [id]
+    );
+    const category = rows[0];
+
+    if (!category) {
+      console.log(`[DEBUG] Category with ID: ${id} not found or not active.`);
+      return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+    }
+
+    console.log(`[DEBUG] Found category:`, category);
+    res.json(category);
+  } catch (error) {
+    console.error('Get category by id error:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin danh mục' });
+  }
+});
+
 export default router;
 

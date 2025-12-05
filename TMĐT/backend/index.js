@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,12 +17,13 @@ import wishlistRoutes from './routes/wishlist.js';
 import addressesRoutes from './routes/addresses.js';
 import vouchersRoutes from './routes/vouchers.js';
 import newsletterRoutes from './routes/newsletter.js';
-import newsRoutes from './routes/news.js';
 import contactRoutes from './routes/contacts.js';
 import uploadsRoutes from './routes/uploads.js';
+import newsRoutes from './routes/news.js'; // Thêm dòng này
 import adminRoutes from './routes/admin.js';
 import paymentsRoutes, { payosWebhook } from './routes/payments.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,6 +69,7 @@ const logger = pinoHttp({
 });
 
 app.use(logger);
+app.use(helmet());
 app.use(cors(corsOptions));
 // Apply rate limiting only in production by default. For local development, set DISABLE_RATE_LIMIT=true to disable.
 if (process.env.DISABLE_RATE_LIMIT !== 'true' && process.env.NODE_ENV === 'production') {
@@ -93,10 +96,12 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/addresses', addressesRoutes);
 app.use('/api/vouchers', vouchersRoutes);
 app.use('/api/newsletter', newsletterRoutes);
-app.use('/api/news', newsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api/news', newsRoutes); // Và thêm dòng này
 app.use('/api/admin', adminRoutes);
+
+
 // PayOS webhook needs raw body to verify signature
 app.post('/api/payments/payos/webhook', express.raw({ type: '*/*' }), (req, res, next) => {
   // attach raw buffer and parse JSON body for handler
@@ -128,4 +133,3 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception thrown:', err);
   process.exit(1);
 });
-

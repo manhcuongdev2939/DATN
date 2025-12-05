@@ -1,47 +1,75 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { adminAPI } from '../utils/api';
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { authAPI } from "../utils/api"; // Giả sử bạn có hàm set token trong này
+
+const schema = yup.object({
+  email: yup.string().email("Email không hợp lệ").required("Không được để trống"),
+  password: yup.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự").required("Không được để trống")
+});
 
 export default function AdminLogin() {
-  const [username, setUsername] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState('');
   const navigate = useNavigate();
+  const [loginError, setLoginError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    const res = await adminAPI.login(username, password);
-    setLoading(false);
-    if (res && res.token) {
-      navigate('/admin');
-    } else {
-      setError(res.error || 'Đăng nhập thất bại');
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: yupResolver(schema)
+  });
+
+  const onSubmit = async (data) => {
+    try {
+      setIsSubmitting(true);
+      setLoginError(""); // Xóa lỗi cũ trước khi gửi yêu cầu mới
+
+      // Gọi API để đăng nhập
+      await authAPI.adminLogin(data.email, data.password);
+
+      navigate("/admin"); // Chuyển hướng đến trang tổng quan của admin
+    } catch (err) {
+      // Hiển thị lỗi từ server hoặc một thông báo chung
+       setLoginError(err.message || "Đã có lỗi xảy ra. Vui lòng thử lại.");
+      console.error('Login error (full error object):', err);
+    } finally {
+      // Luôn tắt trạng thái loading sau khi request hoàn tất
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow">
-        <h2 className="text-2xl font-semibold mb-4">Quản trị viên - Đăng nhập</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Tên đăng nhập</label>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm focus:ring-brand-500" />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Mật khẩu</label>
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="mt-1 block w-full rounded-md border-gray-200 shadow-sm focus:ring-brand-500" />
-          </div>
-          {error && <div className="text-sm text-red-600">{error}</div>}
-          <div className="flex items-center justify-between">
-            <button disabled={loading} className="px-4 py-2 rounded bg-brand-600 text-white font-semibold hover:bg-brand-700 disabled:opacity-50">{loading ? 'Đang...' : 'Đăng nhập'}</button>
-            <a href="/" className="text-sm text-gray-500">Về trang chủ</a>
-          </div>
-        </form>
-      </div>
-    </div>
+    <main className="admin-login">
+      <form onSubmit={handleSubmit(onSubmit)} aria-label="Form đăng nhập admin">
+        <h2>Đăng nhập quản trị</h2>
+
+        {/* Hiển thị thông báo lỗi tại đây */}
+        {loginError && <p className="error" role="alert">{loginError}</p>}
+
+        <label htmlFor="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          {...register("email")}
+          aria-invalid={!!errors.email}
+          aria-describedby="email-error"
+        />
+        <p id="email-error" className="error">{errors.email?.message}</p>
+
+        <label htmlFor="password">Mật khẩu</label>
+        <input
+          id="password"
+          type="password"
+          {...register("password")}
+          aria-invalid={!!errors.password}
+          aria-describedby="pass-error"
+        />
+        <p id="pass-error" className="error">{errors.password?.message}</p>
+
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}
+        </button>
+      </form>
+    </main>
   );
 }
