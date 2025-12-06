@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { cartAPI, addressesAPI, vouchersAPI, ordersAPI, paymentsAPI } from '../utils/api';
 import AddressManagement from './AddressManagement';
 
@@ -16,7 +17,6 @@ export default function Checkout({ user }) {
   const [showCardForm, setShowCardForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
   const [showAddressModal, setShowAddressModal] = useState(false);
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function Checkout({ user }) {
         setSelectedAddress(defaultAddress.ID_Dia_chi);
       }
     } catch (err) {
-      setError('Không thể tải dữ liệu');
+      toast.error('Không thể tải dữ liệu');
     } finally {
       setLoading(false);
     }
@@ -59,9 +59,9 @@ export default function Checkout({ user }) {
       const voucher = await vouchersAPI.check(voucherCode);
       setSelectedVoucher(voucher.ID_Voucher);
       setVoucherCode('');
-      alert('Áp dụng voucher thành công!');
+      toast.success('Áp dụng voucher thành công!');
     } catch (err) {
-      alert(err.error || 'Voucher không hợp lệ');
+      toast.error(err.error || 'Voucher không hợp lệ');
     }
   };
 
@@ -95,7 +95,7 @@ export default function Checkout({ user }) {
 
   const handleSubmit = async () => {
     if (!selectedAddress) {
-      alert('Vui lòng chọn địa chỉ giao hàng');
+      toast.warning('Vui lòng chọn địa chỉ giao hàng');
       return;
     }
 
@@ -106,13 +106,12 @@ export default function Checkout({ user }) {
 
     if (paymentMethod === 'credit_card') {
       if (!cardInfo.number || !cardInfo.expiry || !cardInfo.cvv || !cardInfo.name) {
-        alert('Vui lòng nhập đầy đủ thông tin thẻ');
+        toast.warning('Vui lòng nhập đầy đủ thông tin thẻ');
         return;
       }
     }
 
     setSubmitting(true);
-    setError('');
 
     try {
       // Nếu thanh toán trực tuyến, mô phỏng xác thực
@@ -131,7 +130,7 @@ export default function Checkout({ user }) {
       const result = await ordersAPI.create(orderData);
 
       if (result.error) {
-        setError(result.error);
+        toast.error(result.error);
       } else {
         const createdOrderId = result.order.ID_Don_hang;
         // If bank transfer via PayOS, request transfer info so backend stores payment info
@@ -146,7 +145,7 @@ export default function Checkout({ user }) {
         navigate(`/order-success/${createdOrderId}`);
       }
     } catch (err) {
-      setError(err.message || 'Có lỗi xảy ra khi đặt hàng');
+      toast.error(err.message || 'Có lỗi xảy ra khi đặt hàng');
     } finally {
       setSubmitting(false);
     }
@@ -182,10 +181,6 @@ export default function Checkout({ user }) {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold mb-6">Thanh toán</h1>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 text-red-600 rounded">{error}</div>
-        )}
 
         <div className="grid md:grid-cols-3 gap-6">
           {/* Phần chính */}

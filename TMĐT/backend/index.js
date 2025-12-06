@@ -20,7 +20,6 @@ import newsletterRoutes from './routes/newsletter.js';
 import contactRoutes from './routes/contacts.js';
 import uploadsRoutes from './routes/uploads.js';
 import newsRoutes from './routes/news.js'; // Thêm dòng này
-import adminRoutes from './routes/admin.js';
 import paymentsRoutes, { payosWebhook } from './routes/payments.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
@@ -99,7 +98,6 @@ app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/news', newsRoutes); // Và thêm dòng này
-app.use('/api/admin', adminRoutes);
 
 
 // PayOS webhook needs raw body to verify signature
