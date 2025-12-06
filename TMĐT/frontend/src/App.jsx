@@ -10,14 +10,11 @@ import UserDashboard from "./components/UserDashboard";
 import SearchResults from "./components/SearchResults";
 import LoginPage from "./components/LoginPage";
 import RegisterPage from "./components/RegisterPage";
-import AdminDashboard from "./admin/AdminDashboard";
 import Contact from "./components/Contact";
-import AdminLogin from "./admin/AdminLogin";
 import News from "./components/News";
 import NewsDetail from "./components/NewsDetail";
 import CategoryPage from "./components/CategoryPage";
 import { authAPI, cartAPI, ordersAPI, productsAPI, categoriesAPI } from "./utils/api";
-import ProtectedRoute from "./admin/components/ProtectedRoute";
 
 function NavBar({ user, onLoginClick, onLogout, onCartClick }) {
     const navigate = useNavigate();
@@ -717,8 +714,6 @@ function Footer() {
                             <li><a href="#" className="hover:text-white transition-colors">Điều khoản sử dụng</a></li>
                             <li><a href="#" className="hover:text-white transition-colors">Chính sách bảo mật</a></li>
                             <li><a href="#" className="hover:text-white transition-colors">Chính sách cookie</a></li>
-                            <li><Link to="/login?type=admin" className="hover:text-white transition-colors">Trang quản trị</Link></li>
-                            <li><Link to="/admin" className="hover:text-white transition-colors">Trang quản trị</Link></li>
                         </ul>
                     </div>
                 </div>
@@ -1047,14 +1042,6 @@ export default function App() {
                     <Route path="/news" element={<News />} />
                     <Route path="/news/:id" element={<NewsDetail />} />
                     <Route path="/contact" element={<Contact />} />
-
-                    {/* Admin routes */}
-                    <Route path="/admin/*" element={<AdminDashboard />} />
-                    <Route path="/admin/login" element={<AdminLogin />} />
-                    <Route element={<ProtectedRoute />}>
-                        {/* Tất cả các route bên trong đây sẽ được bảo vệ */}
-                        <Route path="/admin/*" element={<AdminDashboard />} />
-                    </Route>
                 </Routes>
             </main>
             {!isAuthPage && <Footer />}
