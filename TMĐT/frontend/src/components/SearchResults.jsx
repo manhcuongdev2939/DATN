@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { productsAPI } from '../utils/api';
 
 export default function SearchResults() {
@@ -7,7 +8,6 @@ export default function SearchResults() {
   const query = searchParams.get('q') || '';
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (query) {
@@ -21,11 +21,10 @@ export default function SearchResults() {
   const searchProducts = async () => {
     try {
       setLoading(true);
-      setError('');
       const { products: foundProducts } = await productsAPI.getAll({ search: query });
       setProducts(Array.isArray(foundProducts) ? foundProducts : []);
     } catch (err) {
-      setError(err.message || 'Không thể tìm kiếm sản phẩm');
+      toast.error(err.message || 'Không thể tìm kiếm sản phẩm');
       setProducts([]);
     } finally {
       setLoading(false);
@@ -41,8 +40,6 @@ export default function SearchResults() {
 
         {loading ? (
           <div className="text-center py-12 text-gray-600">Đang tìm kiếm...</div>
-        ) : error ? (
-          <div className="text-center py-12 text-red-600">{error}</div>
         ) : products.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-600 mb-4">Không tìm thấy sản phẩm nào</p>
@@ -95,4 +92,3 @@ export default function SearchResults() {
     </div>
   );
 }
-

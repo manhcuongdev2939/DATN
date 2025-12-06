@@ -463,7 +463,6 @@ function Categories() {
 function Featured() {
     const [products, setProducts] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState("");
     const [selectedCategory, setSelectedCategory] = React.useState(null);
 
     React.useEffect(() => {
@@ -478,7 +477,6 @@ function Featured() {
         const fetchProducts = async () => {
             try {
                 setLoading(true);
-                setError("");
                 const params = selectedCategory ? { category: selectedCategory } : {};
                 const { products: rawProducts } = await productsAPI.getAll(params);
                 
@@ -501,7 +499,7 @@ function Featured() {
                 }
             } catch (e) {
                 if (isMounted) {
-                    setError(e.message || "Không tải được sản phẩm.");
+                    toast.error(e.message || "Không tải được sản phẩm.");
                     setProducts([]);
                 }
             } finally {
@@ -529,11 +527,7 @@ function Featured() {
                     <div className="mt-8 text-gray-600">Đang tải sản phẩm...</div>
                 )}
 
-                {error && !loading && (
-                    <div className="mt-8 text-red-600 text-sm">{error}</div>
-                )}
-
-                {!loading && !error && Array.isArray(products) && (
+                {!loading && Array.isArray(products) && (
                     <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
                         {products.map((p, idx) => (
                             <div key={p.id} className="rounded-xl bg-white border hover:shadow-lg transition animate-fade-in" style={{ animationDelay: `${idx * 80}ms` }}>
@@ -944,6 +938,9 @@ function HomePage({ user, onLoginClick, onCartClick }) {
     );
 }
 
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 export default function App() {
     const location = useLocation();
     const [user, setUser] = React.useState(null);
@@ -987,6 +984,18 @@ export default function App() {
 
     return (
         <div className="min-h-full flex flex-col">
+            <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
             {!isAuthPage && (
                 <NavBar
                     user={user}
@@ -1025,7 +1034,10 @@ export default function App() {
                     />
                     <Route path="/search" element={<SearchResults />} />
                     <Route path="/product/:id" element={<ProductDetail user={user} />} />
-                    <Route path="/category/:id" element={<CategoryPage />} />
+                    <Route 
+                        path="/category/:id" 
+                        element={<CategoryPage user={user} onLoginClick={() => setShowAuthModal(true)} />} 
+                    />
                     <Route path="/checkout" element={<Checkout user={user} />} />
                     <Route path="/orders" element={<Orders user={user} />} />
                     <Route path="/order-success/:id" element={<OrderSuccess />} />

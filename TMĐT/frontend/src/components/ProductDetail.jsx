@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { productsAPI, cartAPI, wishlistAPI } from '../utils/api';
 
 export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
@@ -10,7 +11,6 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
   const [reviews, setReviews] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [addingToCart, setAddingToCart] = useState(false);
   const [inWishlist, setInWishlist] = useState(false);
 
@@ -29,7 +29,7 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
       setImages(data.images || []);
       setReviews(data.reviews || []);
     } catch (err) {
-      setError('Không thể tải thông tin sản phẩm');
+      toast.error('Không thể tải thông tin sản phẩm');
     } finally {
       setLoading(false);
     }
@@ -47,12 +47,12 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
 
   const handleAddToCart = async () => {
     if (!user) {
-      alert('Vui lòng đăng nhập để thêm vào giỏ hàng');
+      toast.warning('Vui lòng đăng nhập để thêm vào giỏ hàng');
       return;
     }
 
     if (quantity < 1 || quantity > product.So_luong_ton_kho) {
-      alert('Số lượng không hợp lệ');
+      toast.warning('Số lượng không hợp lệ');
       return;
     }
 
@@ -60,9 +60,9 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
     try {
       await cartAPI.add(product.ID_San_pham, quantity);
       onAddToCart && onAddToCart();
-      alert('Đã thêm vào giỏ hàng');
+      toast.success('Đã thêm vào giỏ hàng');
     } catch (err) {
-      alert(err.message || 'Không thể thêm vào giỏ hàng');
+      toast.error(err.message || 'Không thể thêm vào giỏ hàng');
     } finally {
       setAddingToCart(false);
     }
@@ -70,12 +70,12 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
 
   const handleBuyNow = async () => {
     if (!user) {
-      alert('Vui lòng đăng nhập để mua hàng');
+      toast.warning('Vui lòng đăng nhập để mua hàng');
       return;
     }
 
     if (quantity < 1 || quantity > product.So_luong_ton_kho) {
-      alert('Số lượng không hợp lệ');
+      toast.warning('Số lượng không hợp lệ');
       return;
     }
 
@@ -84,13 +84,13 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
       await cartAPI.add(product.ID_San_pham, quantity);
       navigate('/checkout');
     } catch (err) {
-      alert(err.message || 'Không thể thêm vào giỏ hàng');
+      toast.error(err.message || 'Không thể thêm vào giỏ hàng');
     }
   };
 
   const handleToggleWishlist = async () => {
     if (!user) {
-      alert('Vui lòng đăng nhập để thêm vào yêu thích');
+      toast.warning('Vui lòng đăng nhập để thêm vào yêu thích');
       return;
     }
 
@@ -101,13 +101,15 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
         if (item) {
           await wishlistAPI.remove(item.ID_Wishlist);
           setInWishlist(false);
+          toast.success('Đã xóa khỏi danh sách yêu thích');
         }
       } else {
         await wishlistAPI.add(product.ID_San_pham);
         setInWishlist(true);
+        toast.success('Đã thêm vào danh sách yêu thích');
       }
     } catch (err) {
-      alert('Không thể cập nhật danh sách yêu thích');
+      toast.error('Không thể cập nhật danh sách yêu thích');
     }
   };
 
@@ -119,10 +121,10 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
     );
   }
 
-  if (error || !product) {
+  if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-600">{error || 'Sản phẩm không tồn tại'}</div>
+        <div className="text-red-600">{'Sản phẩm không tồn tại'}</div>
       </div>
     );
   }
@@ -287,4 +289,3 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
     </div>
   );
 }
-

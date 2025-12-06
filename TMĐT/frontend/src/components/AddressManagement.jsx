@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { addressesAPI } from '../utils/api';
 import SearchableSelect from './SearchableSelect';
 import {
@@ -26,7 +27,6 @@ export default function AddressManagement({ user, onClose, onSelect }) {
     Tinh_Thanh: '',
     Mac_dinh: false,
   });
-  const [error, setError] = useState('');
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
   const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
   const [availableDistricts, setAvailableDistricts] = useState([]);
@@ -47,7 +47,7 @@ export default function AddressManagement({ user, onClose, onSelect }) {
       const data = await addressesAPI.getAll();
       setAddresses(data);
     } catch (err) {
-      setError('Không thể tải danh sách địa chỉ');
+      toast.error('Không thể tải danh sách địa chỉ');
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,6 @@ export default function AddressManagement({ user, onClose, onSelect }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setFieldErrors({});
 
     // Validate required fields
@@ -71,8 +70,10 @@ export default function AddressManagement({ user, onClose, onSelect }) {
     try {
       if (editingId) {
         await addressesAPI.update(editingId, formData);
+        toast.success('Cập nhật địa chỉ thành công');
       } else {
         await addressesAPI.create(formData);
+        toast.success('Thêm địa chỉ thành công');
       }
       await loadAddresses();
       setShowForm(false);
@@ -91,7 +92,7 @@ export default function AddressManagement({ user, onClose, onSelect }) {
         Mac_dinh: false,
       });
     } catch (err) {
-      setError(err.error || 'Có lỗi xảy ra');
+      toast.error(err.error || 'Có lỗi xảy ra');
     }
   };
 
@@ -181,13 +182,12 @@ export default function AddressManagement({ user, onClose, onSelect }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
-
     try {
       await addressesAPI.delete(id);
       await loadAddresses();
+      toast.success('Đã xóa địa chỉ');
     } catch (err) {
-      alert('Không thể xóa địa chỉ');
+      toast.error('Không thể xóa địa chỉ');
     }
   };
 
@@ -249,10 +249,6 @@ export default function AddressManagement({ user, onClose, onSelect }) {
             </button>
           </div>
         </div>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 text-red-600 rounded">{error}</div>
-        )}
 
         {showForm && (
           <div className="bg-white rounded-lg p-6 mb-6">

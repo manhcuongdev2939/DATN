@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { ordersAPI } from '../utils/api';
 
 export default function Orders({ user }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function Orders({ user }) {
       const data = await ordersAPI.getAll();
       setOrders(data || []);
     } catch (err) {
-      setError('Không thể tải danh sách đơn hàng');
+      toast.error('Không thể tải danh sách đơn hàng');
     } finally {
       setLoading(false);
     }
@@ -34,7 +34,7 @@ export default function Orders({ user }) {
       const data = await ordersAPI.getById(orderId);
       setSelectedOrder(data);
     } catch (err) {
-      alert('Không thể tải chi tiết đơn hàng');
+      toast.error('Không thể tải chi tiết đơn hàng');
     }
   };
 
@@ -76,10 +76,6 @@ export default function Orders({ user }) {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold mb-6">Đơn hàng của tôi</h1>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 text-red-600 rounded">{error}</div>
-        )}
 
         {orders.length === 0 ? (
           <div className="bg-white rounded-lg p-8 text-center">
@@ -187,4 +183,3 @@ export default function Orders({ user }) {
     </div>
   );
 }
-

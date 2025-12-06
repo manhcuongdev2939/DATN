@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { cartAPI } from '../utils/api';
 
 export default function CartModal({ isOpen, onClose, onUpdate }) {
   const navigate = useNavigate();
   const [cart, setCart] = useState({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -20,7 +20,7 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
       const data = await cartAPI.get();
       setCart(data);
     } catch (err) {
-      setError('Không thể tải giỏ hàng');
+      toast.error('Không thể tải giỏ hàng');
     } finally {
       setLoading(false);
     }
@@ -33,7 +33,7 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
       await loadCart();
       onUpdate && onUpdate();
     } catch (err) {
-      setError('Không thể cập nhật số lượng');
+      toast.error('Không thể cập nhật số lượng');
     }
   };
 
@@ -42,8 +42,9 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
       await cartAPI.remove(itemId);
       await loadCart();
       onUpdate && onUpdate();
+      toast.success('Đã xóa sản phẩm khỏi giỏ hàng');
     } catch (err) {
-      setError('Không thể xóa sản phẩm');
+      toast.error('Không thể xóa sản phẩm');
     }
   };
 
@@ -62,12 +63,6 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
             ×
           </button>
         </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">
-            {error}
-          </div>
-        )}
 
         {loading ? (
           <div className="text-center py-12 text-lg font-medium text-gray-500">Đang tải...</div>
@@ -106,9 +101,7 @@ export default function CartModal({ isOpen, onClose, onUpdate }) {
                           +
                         </button>
                         <button
-                          onClick={() => {
-                            if(window.confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?')) handleRemove(item.ID_Chi_tiet_GH);
-                          }}
+                          onClick={() => handleRemove(item.ID_Chi_tiet_GH)}
                           className="ml-2 text-red-500 hover:bg-red-100 rounded-full p-2 transition"
                           aria-label="Xóa sản phẩm"
                         >
