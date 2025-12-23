@@ -19,7 +19,7 @@ const CartPage = () => {
     try {
       setLoading(true);
       const data = await cartAPI.get();
-      // Handle standardized response format: { success: true, data: { items, total } }
+      // Handle standardized response format: { success: true, data: { items, total }
       const items = data?.items || data?.data?.items || [];
       // Map API data to the component's expected structure
       const mappedItems = items.map((item) => ({
@@ -27,6 +27,7 @@ const CartPage = () => {
         product_id: item.ID_San_pham,
         name: item.Ten_san_pham,
         image_url: item.Thumbnail,
+
         price: item.Gia_tai_thoi_diem_them,
         quantity: item.So_luong,
       }));

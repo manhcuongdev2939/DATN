@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { productsAPI, cartAPI, wishlistAPI, reviewsAPI } from "../utils/api";
-import { addToCart as addGuestCart } from "../utils/guestCart";
+import { addToCart as addGuestCart, getCart as getGuestCart } from "../utils/guestCart";
 
 export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
   const { id } = useParams();
@@ -97,13 +97,35 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
   };
 
   const handleAddToCart = async () => {
-    if (quantity < 1 || quantity > product.So_luong_ton_kho) {
-      toast.warning("Số lượng không hợp lệ");
+    if (quantity < 1 || quantity > 3 || quantity > product.So_luong_ton_kho) {
+      toast.warning("Số lượng phải từ 1 đến 3 và không vượt quá tồn kho.");
       return;
     }
 
     setAddingToCart(true);
     try {
+      let existingQuantity = 0;
+      if (user) {
+        const cartData = await cartAPI.get();
+        const cartItems = cartData?.items || cartData?.data?.items || [];
+        const itemInCart = Array.isArray(cartItems) ? cartItems.find(item => item.ID_San_pham === product.ID_San_pham) : null;
+        if (itemInCart) {
+            existingQuantity = itemInCart.So_luong;
+        }
+      } else {
+        const guestCart = getGuestCart();
+        const itemInCart = guestCart.items.find(item => item.id === product.ID_San_pham);
+        if (itemInCart) {
+            existingQuantity = itemInCart.quantity;
+        }
+      }
+
+      if (existingQuantity + quantity > 3) {
+        toast.warning(`Trong giỏ đã có ${existingQuantity} sản phẩm. Bạn chỉ có thể thêm tối đa ${3 - existingQuantity} sản phẩm nữa.`);
+        setAddingToCart(false); // Stop loading state
+        return;
+      }
+
       if (user) {
         await cartAPI.add(product.ID_San_pham, quantity);
         // Dispatch cart-updated event to update header cart count
@@ -129,13 +151,34 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
   };
 
   const handleBuyNow = async () => {
-    if (quantity < 1 || quantity > product.So_luong_ton_kho) {
-      toast.warning("Số lượng không hợp lệ");
+    if (quantity < 1 || quantity > 3 || quantity > product.So_luong_ton_kho) {
+      toast.warning("Số lượng phải từ 1 đến 3 và không vượt quá tồn kho.");
       return;
     }
 
-    // Thêm vào giỏ hàng trước, sau đó chuyển đến checkout
     try {
+      let existingQuantity = 0;
+      if (user) {
+        const cartData = await cartAPI.get();
+        const cartItems = cartData?.items || cartData?.data?.items || [];
+        const itemInCart = Array.isArray(cartItems) ? cartItems.find(item => item.ID_San_pham === product.ID_San_pham) : null;
+        if (itemInCart) {
+            existingQuantity = itemInCart.So_luong;
+        }
+      } else {
+        const guestCart = getGuestCart();
+        const itemInCart = guestCart.items.find(item => item.id === product.ID_San_pham);
+        if (itemInCart) {
+            existingQuantity = itemInCart.quantity;
+        }
+      }
+
+      if (existingQuantity + quantity > 3) {
+        toast.warning(`Trong giỏ đã có ${existingQuantity} sản phẩm. Bạn chỉ có thể thêm tối đa ${3 - existingQuantity} sản phẩm nữa.`);
+        return;
+      }
+
+      // Thêm vào giỏ hàng trước, sau đó chuyển đến checkout
       if (user) {
         await cartAPI.add(product.ID_San_pham, quantity);
         // Dispatch cart-updated event
@@ -332,51 +375,56 @@ export default function ProductDetail({ user, onAddToCart, onBuyNow }) {
             <div className="flex-grow"/>
 
             {/* QUANTITY */}
-            <div className="mb-6 flex items-center gap-8">
-              <label className="font-medium text-gray-700" htmlFor="quantity">
-                Số lượng
-              </label>
+            <div className="mb-6">
+              <div className="flex items-center gap-8">
+                <label className="font-medium text-gray-700" htmlFor="quantity">
+                  Số lượng
+                </label>
 
-              <div className="flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-8 h-8 border-y border-l border-gray-300 rounded-l-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
-                  aria-label="Giảm số lượng"
-                >
-                  -
-                </button>
-                <input
-                  id="quantity"
-                  type="number"
-                  min="1"
-                  max={product.So_luong_ton_kho}
-                  value={quantity}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 1;
-                    setQuantity(
-                      Math.max(1, Math.min(val, product.So_luong_ton_kho))
-                    );
-                  }}
-                  className="w-12 h-8 text-center border border-gray-300 focus:outline-none"
-                  aria-describedby="stock-info"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuantity(
-                      Math.min(product.So_luong_ton_kho, quantity + 1)
-                    )
-                  }
-                  className="w-8 h-8 border-y border-r border-gray-300 rounded-r-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
-                  aria-label="Tăng số lượng"
-                >
-                  +
-                </button>
-                 <p id="stock-info" className="text-sm text-gray-500 ml-4">
-                  {product.So_luong_ton_kho} sản phẩm có sẵn
-                </p>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-8 h-8 border-y border-l border-gray-300 rounded-l-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
+                    aria-label="Giảm số lượng"
+                  >
+                    -
+                  </button>
+                  <input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    max={Math.min(3, product.So_luong_ton_kho)}
+                    value={quantity}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      setQuantity(
+                        Math.max(1, Math.min(val, 3, product.So_luong_ton_kho))
+                      );
+                    }}
+                    className="w-12 h-8 text-center border border-gray-300 focus:outline-none"
+                    aria-describedby="stock-info"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuantity(
+                        Math.min(product.So_luong_ton_kho, 3, quantity + 1)
+                      )
+                    }
+                    className="w-8 h-8 border-y border-r border-gray-300 rounded-r-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
+                    aria-label="Tăng số lượng"
+                  >
+                    +
+                  </button>
+                  <p id="stock-info" className="text-sm text-gray-500 ml-4">
+                    {product.So_luong_ton_kho} sản phẩm có sẵn
+                  </p>
+                </div>
               </div>
+              <p className="text-sm text-red-500 mt-2 ml-24">
+                * Mua tối đa 3 sản phẩm
+              </p>
             </div>
 
             {/* ACTIONS */}

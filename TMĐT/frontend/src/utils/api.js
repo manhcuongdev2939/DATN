@@ -671,6 +671,51 @@ export const adminAPI = {
     return data;
   },
 
+  // Voucher Admin API
+  getVouchers: async () => {
+    const res = await adminAuthFetch(`/admin/vouchers`);
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+  createVoucher: async (voucherData) => {
+    const res = await adminAuthFetch(`/admin/vouchers`, {
+      method: 'POST',
+      body: JSON.stringify(voucherData),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+  updateVoucher: async (id, voucherData) => {
+     const res = await adminAuthFetch(`/admin/vouchers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(voucherData),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+  deleteVoucher: async (id) => {
+    const res = await adminAuthFetch(`/admin/vouchers/${id}`, {
+      method: 'DELETE',
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
+  // Review Admin API
+  getReviews: async () => {
+    const res = await adminAuthFetch(`/admin/reviews`);
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+  updateReviewStatus: async (id, status) => {
+    const res = await adminAuthFetch(`/admin/reviews/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
   exportOrders: async (params = {}) => {
     const qs = buildQueryString(params);
     const res = await adminAuthFetch(`/admin/orders/export${qs}`);

@@ -6,6 +6,8 @@ import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import { useAuth } from "../context/AuthContext";
 import DashboardCharts from "./DashboardCharts";
+import VoucherManagement from "./VoucherManagement";
+import ReviewManagement from "./ReviewManagement";
 
 // Debounce utility function
 const useDebounce = (value, delay) => {
@@ -355,10 +357,16 @@ export default function AdminDashboard() {
     if (!id || !window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này?"))
       return;
     try {
-      await adminAPI.deleteProduct(id);
-      toast.success("Xóa sản phẩm thành công");
-      loadProducts(null);
-      setSelectedProducts([]);
+      const response = await adminAPI.deleteProduct(id);
+      toast.success(response.message || "Thao tác thành công!");
+
+      // Use abort controller for reloading products and await it
+      const abortController = new AbortController();
+      await loadProducts(abortController.signal);
+
+      setSelectedProducts((prev) => prev.filter((pId) => pId !== id));
+
+      // Refresh summary data
       try {
         const data = await adminAPI.getSummary();
         setSummary(data);
@@ -394,7 +402,8 @@ export default function AdminDashboard() {
         `Đã cập nhật trạng thái ${selectedProducts.length} sản phẩm`
       );
       setSelectedProducts([]);
-      loadProducts(null);
+      const abortController = new AbortController();
+      await loadProducts(abortController.signal);
       try {
         const data = await adminAPI.getSummary();
         setSummary(data);
@@ -424,7 +433,8 @@ export default function AdminDashboard() {
       await adminAPI.bulkDeleteProducts(selectedProducts);
       toast.success("Đã xóa sản phẩm thành công");
       setSelectedProducts([]);
-      loadProducts(null);
+      const abortController = new AbortController();
+      await loadProducts(abortController.signal);
       try {
         const data = await adminAPI.getSummary();
         setSummary(data);
@@ -575,7 +585,7 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold text-gray-900">Trang quản trị</h1>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
-                {["dashboard", "products", "orders", "users"].map((tab) => (
+                {["dashboard", "products", "orders", "users", "vouchers", "reviews"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -589,6 +599,8 @@ export default function AdminDashboard() {
                     {tab === "products" && "Sản phẩm"}
                     {tab === "orders" && "Đơn hàng"}
                     {tab === "users" && "Người dùng"}
+                    {tab === "vouchers" && "Giảm giá"}
+                    {tab === "reviews" && "Đánh giá"}
                   </button>
                 ))}
               </div>
@@ -1419,6 +1431,12 @@ export default function AdminDashboard() {
             )}
           </div>
         )}
+
+        {/* Vouchers Tab */}
+        {activeTab === "vouchers" && <VoucherManagement />}
+
+        {/* Reviews Tab */}
+        {activeTab === "reviews" && <ReviewManagement />}
       </div>
 
       {/* Product Modal */}
