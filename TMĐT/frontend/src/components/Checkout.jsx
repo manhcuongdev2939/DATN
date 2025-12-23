@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { cartAPI, addressesAPI, vouchersAPI, ordersAPI, paymentsAPI } from '../utils/api';
-import AddressManagement from './AddressManagement';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import {
+  cartAPI,
+  addressesAPI,
+  vouchersAPI,
+  ordersAPI,
+  paymentsAPI,
+} from "../utils/api";
+import AddressManagement from "./AddressManagement";
 
 export default function Checkout({ user }) {
   const navigate = useNavigate();
@@ -11,21 +17,19 @@ export default function Checkout({ user }) {
   const [vouchers, setVouchers] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
-  const [voucherCode, setVoucherCode] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [cardInfo, setCardInfo] = useState({ number: '', expiry: '', cvv: '', name: '' });
-  const [showCardForm, setShowCardForm] = useState(false);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      navigate('/');
+      navigate("/");
       return;
     }
     loadData();
-  }, [user]);
+  }, [user, navigate]);
 
   const loadData = async () => {
     try {
@@ -36,17 +40,17 @@ export default function Checkout({ user }) {
         vouchersAPI.getAll(),
       ]);
 
-      setCart(cartData);
-      setAddresses(addressesData);
-      setVouchers(vouchersData);
+      setCart(cartData || { items: [], total: 0 });
+      setAddresses(Array.isArray(addressesData) ? addressesData : []);
+      setVouchers(Array.isArray(vouchersData) ? vouchersData : []);
 
-      // Chọn địa chỉ mặc định
-      const defaultAddress = addressesData.find(addr => addr.Mac_dinh) || addressesData[0];
-      if (defaultAddress) {
-        setSelectedAddress(defaultAddress.ID_Dia_chi);
+      const defaultAddress =
+        addressesData?.find((addr) => addr.Mac_dinh) || addressesData?.[0];
+      if (defaultAddress?.ID_Dia_chi) {
+        setSelectedAddress(Number(defaultAddress.ID_Dia_chi));
       }
     } catch (err) {
-      toast.error('Không thể tải dữ liệu');
+      toast.error("Không thể tải dữ liệu");
     } finally {
       setLoading(false);
     }
@@ -54,14 +58,17 @@ export default function Checkout({ user }) {
 
   const handleCheckVoucher = async () => {
     if (!voucherCode.trim()) return;
-
     try {
       const voucher = await vouchersAPI.check(voucherCode);
-      setSelectedVoucher(voucher.ID_Voucher);
-      setVoucherCode('');
-      toast.success('Áp dụng voucher thành công!');
+      if (voucher?.ID_Voucher) {
+        setSelectedVoucher(voucher.ID_Voucher);
+        setVoucherCode("");
+        toast.success("Áp dụng voucher thành công!");
+      } else {
+        toast.error("Voucher không hợp lệ");
+      }
     } catch (err) {
-      toast.error(err.error || 'Voucher không hợp lệ');
+      toast.error(err.error || "Voucher không hợp lệ");
     }
   };
 
@@ -71,9 +78,9 @@ export default function Checkout({ user }) {
     let shipping = total >= 500000 ? 0 : 30000;
 
     if (selectedVoucher) {
-      const voucher = vouchers.find(v => v.ID_Voucher === selectedVoucher);
+      const voucher = vouchers.find((v) => v?.ID_Voucher === selectedVoucher);
       if (voucher) {
-        if (voucher.Loai_giam_gia === 'percent') {
+        if (voucher.Loai_giam_gia === "percent") {
           discount = (total * voucher.Gia_tri_giam) / 100;
           if (voucher.Gia_tri_toi_da && discount > voucher.Gia_tri_toi_da) {
             discount = voucher.Gia_tri_toi_da;
@@ -95,32 +102,13 @@ export default function Checkout({ user }) {
 
   const handleSubmit = async () => {
     if (!selectedAddress) {
-      toast.warning('Vui lòng chọn địa chỉ giao hàng');
+      toast.warning("Vui lòng chọn địa chỉ giao hàng");
       return;
-    }
-
-    if (paymentMethod === 'credit_card' && !showCardForm) {
-      setShowCardForm(true);
-      return;
-    }
-
-    if (paymentMethod === 'credit_card') {
-      if (!cardInfo.number || !cardInfo.expiry || !cardInfo.cvv || !cardInfo.name) {
-        toast.warning('Vui lòng nhập đầy đủ thông tin thẻ');
-        return;
-      }
     }
 
     setSubmitting(true);
 
     try {
-      // Nếu thanh toán trực tuyến, mô phỏng xác thực
-      if (paymentMethod === 'credit_card') {
-        // Mô phỏng xác thực thanh toán
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        // Trong thực tế, sẽ gọi API thanh toán thật
-      }
-
       const orderData = {
         ID_Dia_chi: selectedAddress,
         ID_Voucher: selectedVoucher || null,
@@ -129,23 +117,29 @@ export default function Checkout({ user }) {
 
       const result = await ordersAPI.create(orderData);
 
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        const createdOrderId = result.order.ID_Don_hang;
-        // If bank transfer via PayOS, request transfer info so backend stores payment info
-        if (paymentMethod === 'bank_transfer') {
-          try {
-            await paymentsAPI.createPayosTransfer(createdOrderId);
-          } catch (e) {
-            console.warn('Không thể tạo yêu cầu PayOS:', e);
-          }
-        }
+      if (result?.error) throw new Error(result.error);
 
-        navigate(`/order-success/${createdOrderId}`);
+      const createdOrderId = result.order?.ID_Don_hang || result.orderId;
+
+      if (!createdOrderId) throw new Error("Không thể lấy ID đơn hàng");
+
+      if (paymentMethod === "payos") {
+        const payosResponse = await paymentsAPI.createPayOSPayment(
+          createdOrderId
+        );
+        if (payosResponse?.payUrl) {
+          // Optional: show loading or toast before redirect
+          toast.info("Chuyển đến PayOS để thanh toán...");
+          window.location.href = payosResponse.payUrl;
+          return;
+        } else {
+          throw new Error("Không thể tạo yêu cầu thanh toán PayOS");
+        }
       }
+
+      navigate(`/order-success/${createdOrderId}`);
     } catch (err) {
-      toast.error(err.message || 'Có lỗi xảy ra khi đặt hàng');
+      toast.error(err.message || "Có lỗi xảy ra khi đặt hàng");
     } finally {
       setSubmitting(false);
     }
@@ -159,13 +153,13 @@ export default function Checkout({ user }) {
     );
   }
 
-  if (cart.items.length === 0) {
+  if (!cart.items?.length) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4">Giỏ hàng trống</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="rounded bg-brand-600 text-white px-4 py-2"
           >
             Quay về trang chủ
@@ -181,11 +175,10 @@ export default function Checkout({ user }) {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold mb-6">Thanh toán</h1>
-
         <div className="grid md:grid-cols-3 gap-6">
-          {/* Phần chính */}
+          {/* Left section */}
           <div className="md:col-span-2 space-y-6">
-            {/* Địa chỉ giao hàng */}
+            {/* Address */}
             <div className="bg-white rounded-lg p-6">
               <h2 className="text-lg font-semibold mb-4">Địa chỉ giao hàng</h2>
               {addresses.length === 0 ? (
@@ -204,22 +197,29 @@ export default function Checkout({ user }) {
                     <label
                       key={addr.ID_Dia_chi}
                       className={`flex items-start gap-3 p-3 border rounded cursor-pointer ${
-                        selectedAddress === addr.ID_Dia_chi ? 'border-brand-600 bg-brand-50' : ''
+                        selectedAddress === Number(addr.ID_Dia_chi)
+                          ? "border-brand-600 bg-brand-50"
+                          : ""
                       }`}
                     >
                       <input
                         type="radio"
                         name="address"
                         value={addr.ID_Dia_chi}
-                        checked={selectedAddress === addr.ID_Dia_chi}
-                        onChange={(e) => setSelectedAddress(parseInt(e.target.value))}
+                        checked={selectedAddress === Number(addr.ID_Dia_chi)}
+                        onChange={(e) =>
+                          setSelectedAddress(Number(e.target.value))
+                        }
                         className="mt-1"
                       />
                       <div className="flex-1">
                         <div className="font-medium">{addr.Ten_nguoi_nhan}</div>
-                        <div className="text-sm text-gray-600">{addr.So_dien_thoai}</div>
                         <div className="text-sm text-gray-600">
-                          {addr.Dia_chi}, {addr.Phuong_Xa}, {addr.Quan_Huyen}, {addr.Tinh_Thanh}
+                          {addr.So_dien_thoai}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {addr.Dia_chi}, {addr.Phuong_Xa}, {addr.Quan_Huyen},{" "}
+                          {addr.Tinh_Thanh}
                         </div>
                       </div>
                     </label>
@@ -259,150 +259,110 @@ export default function Checkout({ user }) {
               )}
             </div>
 
-            {/* Phương thức thanh toán */}
+            {/* Payment Method */}
             <div className="bg-white rounded-lg p-6">
-              <h2 className="text-lg font-semibold mb-4">Phương thức thanh toán</h2>
+              <h2 className="text-lg font-semibold mb-4">
+                Phương thức thanh toán
+              </h2>
               <div className="space-y-3">
                 <label className="flex items-center gap-3 p-3 border rounded cursor-pointer">
                   <input
                     type="radio"
                     name="payment"
                     value="cash"
-                    checked={paymentMethod === 'cash'}
-                    onChange={(e) => {
-                      setPaymentMethod(e.target.value);
-                      setShowCardForm(false);
-                    }}
+                    checked={paymentMethod === "cash"}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
                   />
                   <div>
-                    <div className="font-medium">Thanh toán khi nhận hàng (COD)</div>
-                    <div className="text-sm text-gray-600">Thanh toán bằng tiền mặt khi nhận hàng</div>
+                    <div className="font-medium">
+                      Thanh toán khi nhận hàng (COD)
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Thanh toán bằng tiền mặt khi nhận hàng
+                    </div>
                   </div>
                 </label>
                 <label className="flex items-center gap-3 p-3 border rounded cursor-pointer">
                   <input
                     type="radio"
                     name="payment"
-                    value="credit_card"
-                    checked={paymentMethod === 'credit_card'}
-                    onChange={(e) => {
-                      setPaymentMethod(e.target.value);
-                      setShowCardForm(true);
-                    }}
+                    value="payos"
+                    checked={paymentMethod === "payos"}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
                   />
                   <div>
-                    <div className="font-medium">Thanh toán trực tuyến</div>
-                    <div className="text-sm text-gray-600">Thanh toán bằng thẻ tín dụng/ghi nợ</div>
-                  </div>
-                </label>
-                <label className="flex items-center gap-3 p-3 border rounded cursor-pointer">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="bank_transfer"
-                    checked={paymentMethod === 'bank_transfer'}
-                    onChange={(e) => {
-                      setPaymentMethod(e.target.value);
-                      setShowCardForm(false);
-                    }}
-                  />
-                  <div>
-                    <div className="font-medium">Chuyển khoản ngân hàng (PayOS)</div>
-                    <div className="text-sm text-gray-600">Nhận thông tin tài khoản để chuyển khoản</div>
+                    <div className="font-medium">Thanh toán PayOS</div>
+                    <div className="text-sm text-gray-600">
+                      Thanh toán bằng QR, thẻ ngân hàng, ví điện tử
+                    </div>
                   </div>
                 </label>
               </div>
-
-              {/* Form thẻ thanh toán */}
-              {showCardForm && paymentMethod === 'credit_card' && (
-                <div className="mt-4 p-4 border rounded bg-gray-50">
-                  <h3 className="font-medium mb-3">Thông tin thẻ</h3>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Tên chủ thẻ"
-                      value={cardInfo.name}
-                      onChange={(e) => setCardInfo({ ...cardInfo, name: e.target.value })}
-                      className="w-full rounded border px-3 py-2"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Số thẻ (16 số)"
-                      value={cardInfo.number}
-                      onChange={(e) => setCardInfo({ ...cardInfo, number: e.target.value })}
-                      maxLength="16"
-                      className="w-full rounded border px-3 py-2"
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        placeholder="MM/YY"
-                        value={cardInfo.expiry}
-                        onChange={(e) => setCardInfo({ ...cardInfo, expiry: e.target.value })}
-                        className="rounded border px-3 py-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="CVV"
-                        value={cardInfo.cvv}
-                        onChange={(e) => setCardInfo({ ...cardInfo, cvv: e.target.value })}
-                        maxLength="3"
-                        className="rounded border px-3 py-2"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Tóm tắt đơn hàng */}
+          {/* Right section - Order Summary */}
           <div className="md:col-span-1">
             <div className="bg-white rounded-lg p-6 sticky top-4">
               <h2 className="text-lg font-semibold mb-4">Tóm tắt đơn hàng</h2>
-              
               <div className="space-y-2 mb-4">
-                {cart.items.map((item) => (
-                  <div key={item.ID_Chi_tiet_GH} className="flex justify-between text-sm">
-                    <span>{item.Ten_san_pham} x{item.So_luong}</span>
-                    <span>{Number(item.Thanh_tien).toLocaleString('vi-VN')}₫</span>
-                  </div>
-                ))}
+                {cart.items.length > 0 ? (
+                  cart.items.map((item) => (
+                    <div
+                      key={item.ID_Chi_tiet_GH || item.ID_San_pham}
+                      className="flex justify-between text-sm"
+                    >
+                      <span>
+                        {item.Ten_san_pham || "Sản phẩm"} x{item.So_luong || 0}
+                      </span>
+                      <span>
+                        {Number(item.Thanh_tien || 0).toLocaleString("vi-VN")}₫
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">Giỏ hàng trống</p>
+                )}
               </div>
-
               <div className="border-t pt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Tạm tính:</span>
-                  <span>{totals.subtotal.toLocaleString('vi-VN')}₫</span>
+                  <span>{totals.subtotal.toLocaleString("vi-VN")}₫</span>
                 </div>
                 {totals.discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Giảm giá:</span>
-                    <span>-{totals.discount.toLocaleString('vi-VN')}₫</span>
+                    <span>-{totals.discount.toLocaleString("vi-VN")}₫</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>Phí vận chuyển:</span>
-                  <span>{totals.shipping === 0 ? 'Miễn phí' : `${totals.shipping.toLocaleString('vi-VN')}₫`}</span>
+                  <span>
+                    {totals.shipping === 0
+                      ? "Miễn phí"
+                      : `${totals.shipping.toLocaleString("vi-VN")}₫`}
+                  </span>
                 </div>
                 <div className="border-t pt-2 flex justify-between font-bold text-lg">
                   <span>Tổng cộng:</span>
-                  <span className="text-brand-600">{totals.total.toLocaleString('vi-VN')}₫</span>
+                  <span className="text-brand-600">
+                    {totals.total.toLocaleString("vi-VN")}₫
+                  </span>
                 </div>
               </div>
-
               <button
                 onClick={handleSubmit}
                 disabled={submitting || !selectedAddress}
                 className="w-full mt-6 rounded bg-brand-600 text-white py-3 font-medium hover:bg-brand-700 disabled:opacity-50"
               >
-                {submitting ? 'Đang xử lý...' : 'Đặt ngay'}
+                {submitting ? "Đang xử lý..." : "Đặt ngay"}
               </button>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Address Modal */}
       {showAddressModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -413,7 +373,7 @@ export default function Checkout({ user }) {
                 loadData();
               }}
               onSelect={(addressId) => {
-                setSelectedAddress(addressId);
+                setSelectedAddress(Number(addressId));
                 setShowAddressModal(false);
               }}
             />
@@ -423,4 +383,3 @@ export default function Checkout({ user }) {
     </div>
   );
 }
-

@@ -1,31 +1,42 @@
-import express from 'express';
-import pool from '../db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import express from "express";
+import rateLimit from "express-rate-limit";
+import pool from "../db.js";
+import { authenticateToken } from "../middleware/auth.js";
+import { successResponse, errorResponse } from "../utils/response.js";
 
 const router = express.Router();
 
+// Thêm rate limiting để chống spam
+const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 giờ
+  max: 20, // Giới hạn mỗi user 20 reviews mỗi giờ
+  message: { error: "Bạn đã gửi quá nhiều đánh giá. Vui lòng thử lại sau 1 giờ." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Tạo đánh giá sản phẩm
-router.post('/', authenticateToken, async (req, res) => {
+router.post("/", authenticateToken, reviewLimiter, async (req, res) => {
   try {
     const userId = req.user.id;
     const { ID_San_pham, Diem_so, Noi_dung_binh_luan } = req.body;
 
     if (!ID_San_pham || !Diem_so) {
-      return res.status(400).json({ error: 'ID_San_pham và Diem_so là bắt buộc' });
+      return errorResponse(res, "ID_San_pham và Diem_so là bắt buộc", 400);
     }
 
     if (Diem_so < 1 || Diem_so > 5) {
-      return res.status(400).json({ error: 'Điểm số phải từ 1 đến 5' });
+      return errorResponse(res, "Điểm số phải từ 1 đến 5", 400);
     }
 
     // Kiểm tra đã đánh giá chưa
     const [existing] = await pool.query(
-      'SELECT * FROM danh_gia_phan_hoi WHERE ID_Khach_hang = ? AND ID_San_pham = ?',
+      "SELECT * FROM danh_gia_phan_hoi WHERE ID_Khach_hang = ? AND ID_San_pham = ?",
       [userId, ID_San_pham]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'Bạn đã đánh giá sản phẩm này rồi' });
+      return errorResponse(res, "Bạn đã đánh giá sản phẩm này rồi", 400);
     }
 
     // Kiểm tra đã mua sản phẩm chưa
@@ -37,7 +48,7 @@ router.post('/', authenticateToken, async (req, res) => {
     );
 
     if (purchased.length === 0) {
-      return res.status(403).json({ error: 'Bạn cần mua sản phẩm trước khi đánh giá' });
+      return errorResponse(res, "Bạn cần mua sản phẩm trước khi đánh giá", 403);
     }
 
     await pool.query(
@@ -45,15 +56,17 @@ router.post('/', authenticateToken, async (req, res) => {
       [ID_San_pham, userId, Diem_so, Noi_dung_binh_luan || null]
     );
 
-    res.status(201).json({ message: 'Đánh giá thành công' });
+    return successResponse(res, { message: "Đánh giá thành công" }, {}, 201);
   } catch (error) {
-    console.error('Create review error:', error);
-    res.status(500).json({ error: 'Lỗi tạo đánh giá' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Create review error:", error);
+    }
+    return errorResponse(res, "Lỗi tạo đánh giá", 500);
   }
 });
 
 // Lấy đánh giá của sản phẩm
-router.get('/product/:id', async (req, res) => {
+router.get("/product/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { page = 1, limit = 10 } = req.query;
@@ -85,15 +98,16 @@ router.get('/product/:id', async (req, res) => {
       [id]
     );
 
-    res.json({
+    return successResponse(res, {
       reviews,
-      stats: stats[0] || null
+      stats: stats[0] || null,
     });
   } catch (error) {
-    console.error('Get reviews error:', error);
-    res.status(500).json({ error: 'Lỗi lấy đánh giá' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Get reviews error:", error);
+    }
+    return errorResponse(res, "Lỗi lấy đánh giá", 500);
   }
 });
 
 export default router;
-

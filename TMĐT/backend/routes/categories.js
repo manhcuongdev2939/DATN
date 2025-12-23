@@ -1,31 +1,57 @@
-import express from 'express';
-import pool from '../db.js';
+import express from "express";
+import pool from "../db.js";
+import { successResponse, errorResponse } from "../utils/response.js";
 
 const router = express.Router();
 
-// Lấy tất cả danh mục
-router.get('/', async (req, res) => {
+// Lấy tất cả danh mục (optimized + server-side cache)
+let _categoriesCache = { data: null, expiresAt: 0 };
+const CATEGORIES_TTL_MS = Number(process.env.CATEGORIES_TTL_MS) || 60 * 1000; // default 60s
+
+router.get("/", async (req, res) => {
   try {
+    const now = Date.now();
+    if (_categoriesCache.data && _categoriesCache.expiresAt > now) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("Returning categories from server cache");
+      }
+      return successResponse(res, _categoriesCache.data);
+    }
+
+    const start = Date.now();
     const [categories] = await pool.query(
-      `SELECT 
-        dm.*,
-        COUNT(sp.ID_San_pham) as So_luong_san_pham
+      `SELECT dm.ID_Danh_muc, dm.Ten_danh_muc, dm.Hinh_anh,
+        COALESCE(p.cnt, 0) AS So_luong_san_pham
       FROM danh_muc dm
-      LEFT JOIN san_pham sp ON dm.ID_Danh_muc = sp.ID_Danh_muc AND sp.Trang_thai = 'active'
+      LEFT JOIN (
+        SELECT ID_Danh_muc, COUNT(*) AS cnt
+        FROM san_pham
+        WHERE Trang_thai = 'active'
+        GROUP BY ID_Danh_muc
+      ) p ON p.ID_Danh_muc = dm.ID_Danh_muc
       WHERE dm.Trang_thai = 'active'
-      GROUP BY dm.ID_Danh_muc
       ORDER BY dm.Ten_danh_muc ASC`
     );
 
-    res.json(categories);
+    _categoriesCache.data = categories;
+    _categoriesCache.expiresAt = Date.now() + CATEGORIES_TTL_MS;
+
+    const duration = Date.now() - start;
+    if (process.env.NODE_ENV === "development") {
+      console.log(`Get categories query took ${duration}ms`);
+    }
+
+    return successResponse(res, categories);
   } catch (error) {
-    console.error('Get categories error:', error);
-    res.status(500).json({ error: 'Lỗi lấy danh sách danh mục' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Get categories error:", error);
+    }
+    return errorResponse(res, "Lỗi lấy danh sách danh mục", 500);
   }
 });
 
 // Lấy sản phẩm theo danh mục
-router.get('/:id/products', async (req, res) => {
+router.get("/:id/products", async (req, res) => {
   try {
     const { id } = req.params;
     const { page = 1, limit = 20 } = req.query;
@@ -42,18 +68,19 @@ router.get('/:id/products', async (req, res) => {
       [id, Number(limit), offset]
     );
 
-    res.json(products);
+    return successResponse(res, { products });
   } catch (error) {
-    console.error('Get category products error:', error);
-    res.status(500).json({ error: 'Lỗi lấy sản phẩm theo danh mục' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Get category products error:", error);
+    }
+    return errorResponse(res, "Lỗi lấy sản phẩm theo danh mục", 500);
   }
 });
 
 // Lấy thông tin một danh mục
-router.get('/:id', async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`[DEBUG] Fetching category with ID: ${id}`);
     const [rows] = await pool.query(
       `SELECT * FROM danh_muc WHERE ID_Danh_muc = ? AND Trang_thai = 'active'`,
       [id]
@@ -61,17 +88,21 @@ router.get('/:id', async (req, res) => {
     const category = rows[0];
 
     if (!category) {
-      console.log(`[DEBUG] Category with ID: ${id} not found or not active.`);
-      return res.status(404).json({ error: 'Không tìm thấy danh mục' });
+      return errorResponse(res, "Không tìm thấy danh mục", 404);
     }
 
-    console.log(`[DEBUG] Found category:`, category);
-    res.json(category);
+    return successResponse(res, { category });
   } catch (error) {
-    console.error('Get category by id error:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy thông tin danh mục' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Get category by id error:", error);
+    }
+    return errorResponse(res, "Lỗi khi lấy thông tin danh mục", 500);
   }
 });
 
-export default router;
+export const clearCategoriesCache = () => {
+  _categoriesCache.data = null;
+  _categoriesCache.expiresAt = 0;
+};
 
+export default router;

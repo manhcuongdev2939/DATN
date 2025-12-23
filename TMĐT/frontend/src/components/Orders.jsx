@@ -21,9 +21,12 @@ export default function Orders({ user }) {
     try {
       setLoading(true);
       const data = await ordersAPI.getAll();
-      setOrders(data || []);
+      // Backend returns { orders } in data object
+      const ordersList = data?.orders || (Array.isArray(data) ? data : []);
+      setOrders(Array.isArray(ordersList) ? ordersList : []);
     } catch (err) {
       toast.error('Không thể tải danh sách đơn hàng');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -112,7 +115,7 @@ export default function Orders({ user }) {
 
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div className="text-sm text-gray-600">
-                    {order.So_luong_san_pham} sản phẩm
+                    {order.So_luong_san_pham || (order.ProductIds ? order.ProductIds.split(',').length : 0)} sản phẩm
                   </div>
                   <button
                     onClick={() => handleViewDetail(order.ID_Don_hang)}

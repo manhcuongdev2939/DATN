@@ -43,7 +43,7 @@ export default function NewsDetail() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-fade-in">
-      <Link to="/news" className="text-sm text-brand-600 hover:underline">← Quay lại danh sách</Link>
+      <Link to="/news" className="text-sm text-brand-600 hover:underline">Quay lại danh sách</Link>
       
       <article className="mt-4">
         <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 leading-tight">{article.title}</h1>

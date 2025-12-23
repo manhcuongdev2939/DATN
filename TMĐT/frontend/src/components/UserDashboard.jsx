@@ -1,42 +1,58 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authAPI, addressesAPI, wishlistAPI } from '../utils/api';
-import AddressManagement from './AddressManagement';
-import Orders from './Orders';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { authAPI, addressesAPI, wishlistAPI } from "../utils/api";
+import AddressManagement from "./AddressManagement";
+import Orders from "./Orders";
 
 export default function UserDashboard({ user, onLogout, onUpdateUser }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState("profile");
   const [formData, setFormData] = useState({
-    Ten_khach_hang: user?.Ten_khach_hang || '',
-    So_dien_thoai: user?.So_dien_thoai || '',
-    Dia_chi_mac_dinh: user?.Dia_chi_mac_dinh || '',
+    Ten_khach_hang: user?.Ten_khach_hang || "",
+    So_dien_thoai: user?.So_dien_thoai || "",
+    Dia_chi_mac_dinh: user?.Dia_chi_mac_dinh || "",
   });
+
+  const location = useLocation();
+
+  // Read `?tab=` query param (e.g., /dashboard?tab=wishlist) and set the active tab accordingly
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab");
+    const allowed = ["profile", "orders", "addresses", "wishlist"];
+    if (tab && allowed.includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setMessage('');
+    setMessage("");
 
     try {
-      // TODO: Implement update profile API
-      // await authAPI.updateProfile(formData);
-      setMessage('Cập nhật thành công!');
-      onUpdateUser && onUpdateUser({ ...user, ...formData });
+      const result = await authAPI.updateProfile(formData);
+      if (result.user) {
+        setMessage("Cập nhật thành công!");
+        onUpdateUser && onUpdateUser(result.user);
+      } else {
+        setMessage("Cập nhật thành công!");
+        onUpdateUser && onUpdateUser({ ...user, ...formData });
+      }
     } catch (err) {
-      setMessage('Có lỗi xảy ra khi cập nhật');
+      setMessage(err.message || "Có lỗi xảy ra khi cập nhật");
     } finally {
       setSaving(false);
     }
   };
 
   const tabs = [
-    { id: 'profile', label: 'Thông tin cá nhân', icon: '👤' },
-    { id: 'orders', label: 'Đơn hàng', icon: '📦' },
-    { id: 'addresses', label: 'Địa chỉ', icon: '📍' },
-    { id: 'wishlist', label: 'Yêu thích', icon: '❤️' },
+    { id: "profile", label: "Thông tin cá nhân", icon: "" },
+    { id: "orders", label: "Đơn hàng", icon: "" },
+    { id: "addresses", label: "Địa chỉ", icon: "" },
+    { id: "wishlist", label: "Yêu thích", icon: "" },
   ];
 
   return (
@@ -57,8 +73,8 @@ export default function UserDashboard({ user, onLogout, onUpdateUser }) {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full text-left px-4 py-3 rounded-lg transition ${
                     activeTab === tab.id
-                      ? 'bg-brand-100 text-brand-700 font-medium'
-                      : 'hover:bg-gray-100'
+                      ? "bg-brand-100 text-brand-700 font-medium"
+                      : "hover:bg-gray-100"
                   }`}
                 >
                   <span className="mr-2">{tab.icon}</span>
@@ -69,58 +85,89 @@ export default function UserDashboard({ user, onLogout, onUpdateUser }) {
                 onClick={onLogout}
                 className="w-full text-left px-4 py-3 rounded-lg hover:bg-red-50 text-red-600 mt-4"
               >
-                🚪 Đăng xuất
+                Đăng xuất
               </button>
             </div>
           </div>
 
           {/* Content */}
           <div className="md:col-span-3">
-            {activeTab === 'profile' && (
+            {activeTab === "profile" && (
               <div className="bg-white rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4">Thông tin cá nhân</h2>
+                <h2 className="text-xl font-semibold mb-4">
+                  Thông tin cá nhân
+                </h2>
                 {message && (
-                  <div className={`mb-4 p-3 rounded ${
-                    message.includes('thành công') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                  }`}>
+                  <div
+                    className={`mb-4 p-3 rounded ${
+                      message.includes("thành công")
+                        ? "bg-green-50 text-green-600"
+                        : "bg-red-50 text-red-600"
+                    }`}
+                  >
                     {message}
                   </div>
                 )}
                 <form onSubmit={handleSaveProfile} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Họ tên</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Họ tên
+                    </label>
                     <input
                       type="text"
                       value={formData.Ten_khach_hang}
-                      onChange={(e) => setFormData({ ...formData, Ten_khach_hang: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          Ten_khach_hang: e.target.value,
+                        })
+                      }
                       className="w-full rounded border px-3 py-2"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Email
+                    </label>
                     <input
                       type="email"
-                      value={user?.Email || ''}
+                      value={user?.Email || ""}
                       disabled
                       className="w-full rounded border px-3 py-2 bg-gray-100"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Email không thể thay đổi</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Email không thể thay đổi
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Số điện thoại</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Số điện thoại
+                    </label>
                     <input
                       type="tel"
                       value={formData.So_dien_thoai}
-                      onChange={(e) => setFormData({ ...formData, So_dien_thoai: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          So_dien_thoai: e.target.value,
+                        })
+                      }
                       className="w-full rounded border px-3 py-2"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Địa chỉ mặc định</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Địa chỉ mặc định
+                    </label>
                     <input
                       type="text"
                       value={formData.Dia_chi_mac_dinh}
-                      onChange={(e) => setFormData({ ...formData, Dia_chi_mac_dinh: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          Dia_chi_mac_dinh: e.target.value,
+                        })
+                      }
                       className="w-full rounded border px-3 py-2"
                     />
                   </div>
@@ -129,19 +176,17 @@ export default function UserDashboard({ user, onLogout, onUpdateUser }) {
                     disabled={saving}
                     className="rounded bg-brand-600 text-white px-6 py-2 hover:bg-brand-700 disabled:opacity-50"
                   >
-                    {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    {saving ? "Đang lưu..." : "Lưu thay đổi"}
                   </button>
                 </form>
               </div>
             )}
 
-            {activeTab === 'orders' && <Orders user={user} />}
+            {activeTab === "orders" && <Orders user={user} />}
 
-            {activeTab === 'addresses' && <AddressManagement user={user} />}
+            {activeTab === "addresses" && <AddressManagement user={user} />}
 
-            {activeTab === 'wishlist' && (
-              <WishlistTab user={user} />
-            )}
+            {activeTab === "wishlist" && <WishlistTab user={user} />}
           </div>
         </div>
       </div>
@@ -163,7 +208,7 @@ function WishlistTab({ user }) {
       const data = await wishlistAPI.getAll();
       setWishlist(data || []);
     } catch (err) {
-      console.error('Load wishlist error:', err);
+      console.error("Load wishlist error:", err);
     } finally {
       setLoading(false);
     }
@@ -174,7 +219,7 @@ function WishlistTab({ user }) {
       await wishlistAPI.remove(itemId);
       await loadWishlist();
     } catch (err) {
-      alert('Không thể xóa khỏi yêu thích');
+      alert("Không thể xóa khỏi yêu thích");
     }
   };
 
@@ -193,7 +238,7 @@ function WishlistTab({ user }) {
         <div className="text-center py-8 text-gray-500">
           <p className="mb-4">Chưa có sản phẩm yêu thích nào</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="rounded bg-brand-600 text-white px-4 py-2 hover:bg-brand-700"
           >
             Tiếp tục mua sắm
@@ -202,13 +247,19 @@ function WishlistTab({ user }) {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {wishlist.map((item) => (
-            <div key={item.ID_Wishlist} className="border rounded-lg overflow-hidden hover:shadow-lg transition">
+            <div
+              key={item.ID_Wishlist}
+              className="border rounded-lg overflow-hidden hover:shadow-lg transition"
+            >
               <div
                 onClick={() => navigate(`/product/${item.ID_San_pham}`)}
                 className="aspect-square bg-gray-100 cursor-pointer"
               >
                 <img
-                  src={item.Thumbnail || "data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20300%20300'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%23e5e7eb'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20fill='%239ca3af'%20font-size='20'%3ENo%20image%3C/text%3E%3C/svg%3E"}
+                  src={
+                    item.Thumbnail ||
+                    "data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20300%20300'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%23e5e7eb'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20fill='%239ca3af'%20font-size='20'%3ENo%20image%3C/text%3E%3C/svg%3E"
+                  }
                   alt={item.Ten_san_pham}
                   className="w-full h-full object-cover"
                 />
@@ -221,7 +272,7 @@ function WishlistTab({ user }) {
                   {item.Ten_san_pham}
                 </div>
                 <div className="font-semibold text-brand-600 mb-2">
-                  {Number(item.Gia).toLocaleString('vi-VN')}₫
+                  {Number(item.Gia).toLocaleString("vi-VN")}₫
                 </div>
                 <button
                   onClick={() => handleRemove(item.ID_Wishlist)}
@@ -237,4 +288,3 @@ function WishlistTab({ user }) {
     </div>
   );
 }
-

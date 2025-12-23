@@ -1,11 +1,12 @@
-import express from 'express';
-import pool from '../db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import express from "express";
+import pool from "../db.js";
+import { authenticateToken } from "../middleware/auth.js";
+import { successResponse, errorResponse } from "../utils/response.js";
 
 const router = express.Router();
 
 // Lấy wishlist
-router.get('/', authenticateToken, async (req, res) => {
+router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -26,78 +27,91 @@ router.get('/', authenticateToken, async (req, res) => {
       [userId]
     );
 
-    res.json(items);
+    return successResponse(res, { items });
   } catch (error) {
-    console.error('Get wishlist error:', error);
-    res.status(500).json({ error: 'Lỗi lấy danh sách yêu thích' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Get wishlist error:", error);
+    }
+    return errorResponse(res, "Lỗi lấy danh sách yêu thích", 500);
   }
 });
 
 // Thêm vào wishlist
-router.post('/add', authenticateToken, async (req, res) => {
+router.post("/add", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { ID_San_pham } = req.body;
 
     if (!ID_San_pham) {
-      return res.status(400).json({ error: 'ID_San_pham là bắt buộc' });
+      return errorResponse(res, "ID_San_pham là bắt buộc", 400);
     }
 
     // Kiểm tra sản phẩm
     const [products] = await pool.query(
-      'SELECT * FROM san_pham WHERE ID_San_pham = ?',
+      "SELECT * FROM san_pham WHERE ID_San_pham = ?",
       [ID_San_pham]
     );
 
     if (products.length === 0) {
-      return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+      return errorResponse(res, "Sản phẩm không tồn tại", 404);
     }
 
     // Kiểm tra đã có trong wishlist chưa
     const [existing] = await pool.query(
-      'SELECT * FROM wishlist WHERE ID_Khach_hang = ? AND ID_San_pham = ?',
+      "SELECT * FROM wishlist WHERE ID_Khach_hang = ? AND ID_San_pham = ?",
       [userId, ID_San_pham]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'Sản phẩm đã có trong danh sách yêu thích' });
+      return errorResponse(
+        res,
+        "Sản phẩm đã có trong danh sách yêu thích",
+        400
+      );
     }
 
     await pool.query(
-      'INSERT INTO wishlist (ID_Khach_hang, ID_San_pham) VALUES (?, ?)',
+      "INSERT INTO wishlist (ID_Khach_hang, ID_San_pham) VALUES (?, ?)",
       [userId, ID_San_pham]
     );
 
-    res.json({ message: 'Đã thêm vào danh sách yêu thích' });
+    return successResponse(res, { message: "Đã thêm vào danh sách yêu thích" });
   } catch (error) {
-    console.error('Add to wishlist error:', error);
-    res.status(500).json({ error: 'Lỗi thêm vào danh sách yêu thích' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Add to wishlist error:", error);
+    }
+    return errorResponse(res, "Lỗi thêm vào danh sách yêu thích", 500);
   }
 });
 
 // Xóa khỏi wishlist
-router.delete('/remove/:id', authenticateToken, async (req, res) => {
+router.delete("/remove/:id", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
 
     const [items] = await pool.query(
-      'SELECT * FROM wishlist WHERE ID_Wishlist = ? AND ID_Khach_hang = ?',
+      "SELECT * FROM wishlist WHERE ID_Wishlist = ? AND ID_Khach_hang = ?",
       [id, userId]
     );
 
     if (items.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy trong danh sách yêu thích' });
+      return errorResponse(
+        res,
+        "Không tìm thấy trong danh sách yêu thích",
+        404
+      );
     }
 
-    await pool.query('DELETE FROM wishlist WHERE ID_Wishlist = ?', [id]);
+    await pool.query("DELETE FROM wishlist WHERE ID_Wishlist = ?", [id]);
 
-    res.json({ message: 'Đã xóa khỏi danh sách yêu thích' });
+    return successResponse(res, { message: "Đã xóa khỏi danh sách yêu thích" });
   } catch (error) {
-    console.error('Remove from wishlist error:', error);
-    res.status(500).json({ error: 'Lỗi xóa khỏi danh sách yêu thích' });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Remove from wishlist error:", error);
+    }
+    return errorResponse(res, "Lỗi xóa khỏi danh sách yêu thích", 500);
   }
 });
 
 export default router;
-

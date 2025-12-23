@@ -14,6 +14,16 @@
    source 02_seed_data.sql;
    ```
 
+3. **03_create_news.sql** - Tạo bảng cho module tin tức (nếu cần)
+   ```sql
+   source 03_create_news.sql;
+   ```
+
+4. **04_create_revoked_tokens.sql** - Tạo bảng lưu JWT đã bị thu hồi (logout/revoke)
+   ```sql
+   source 04_create_revoked_tokens.sql;
+   ```
+
 ## Cách chạy:
 
 ### Option 1: Sử dụng MySQL Command Line

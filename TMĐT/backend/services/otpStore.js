@@ -1,11 +1,16 @@
-import pool from '../db.js';
+import pool from "../db.js";
 
 const OTP_TYPES = {
-  LOGIN: 'login',
-  REGISTER: 'register',
+  LOGIN: "login",
+  REGISTER: "register",
 };
 
-export const saveOtp = async ({ email, code, type = OTP_TYPES.LOGIN, ttlMinutes = 5 }) => {
+export const saveOtp = async ({
+  email,
+  code,
+  type = OTP_TYPES.LOGIN,
+  ttlMinutes = 5,
+}) => {
   const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
   await pool.query(
     `INSERT INTO otp_codes (Email, Otp_code, Type, Expires_at)
@@ -15,29 +20,41 @@ export const saveOtp = async ({ email, code, type = OTP_TYPES.LOGIN, ttlMinutes 
   );
 };
 
-export const verifyOtp = async ({ email, code, type = OTP_TYPES.LOGIN }) => {
+export const verifyOtp = async ({
+  email,
+  code,
+  type = OTP_TYPES.LOGIN,
+  consume = true,
+}) => {
   const [rows] = await pool.query(
-    'SELECT * FROM otp_codes WHERE Email = ? AND Type = ?',
+    "SELECT * FROM otp_codes WHERE Email = ? AND Type = ?",
     [email, type]
   );
 
   if (!rows.length) {
-    return { valid: false, reason: 'OTP không tồn tại' };
+    return { valid: false, reason: "OTP không tồn tại" };
   }
 
   const record = rows[0];
   if (record.Expires_at < new Date()) {
-    await pool.query('DELETE FROM otp_codes WHERE Email = ? AND Type = ?', [email, type]);
-    return { valid: false, reason: 'OTP đã hết hạn' };
+    await pool.query("DELETE FROM otp_codes WHERE Email = ? AND Type = ?", [
+      email,
+      type,
+    ]);
+    return { valid: false, reason: "OTP đã hết hạn" };
   }
 
   if (record.Otp_code !== code) {
-    return { valid: false, reason: 'OTP không đúng' };
+    return { valid: false, reason: "OTP không đúng" };
   }
 
-  await pool.query('DELETE FROM otp_codes WHERE Email = ? AND Type = ?', [email, type]);
+  if (consume) {
+    await pool.query("DELETE FROM otp_codes WHERE Email = ? AND Type = ?", [
+      email,
+      type,
+    ]);
+  }
   return { valid: true };
 };
 
 export { OTP_TYPES };
-

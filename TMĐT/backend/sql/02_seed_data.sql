@@ -90,7 +90,7 @@ INSERT INTO voucher (Ma_voucher, Mo_ta, Loai_giam_gia, Gia_tri_giam, Gia_tri_toi
 -- 5. Thêm admin mẫu (mật khẩu: admin123)
 -- Lưu ý: Cần hash mật khẩu trước khi insert. Mật khẩu mặc định: admin123
 INSERT INTO nguoi_dung_admin (Ten_dang_nhap, Mat_khau_hash, Ho_ten, Email, Vai_tro, Trang_thai) VALUES
-('admin', '$2b$10$rQZ8K5K5K5K5K5K5K5K5K.5K5K5K5K5K5K5K5K5K5K5K5K5K5K', 'Quản trị viên', 'admin@example.com', 'super_admin', 'active');
+('admin', '$2b$10$3PF7/2a.d.BC9uB3p6g9UuH.2Z2j2mS.V.D.Cg.Q.Z.g.2e.a.5W', 'Quản trị viên', 'admin@example.com', 'super_admin', 'active');
 
 -- Lưu ý: Mật khẩu admin cần được hash bằng bcrypt trước khi insert vào database
 -- Có thể chạy script Node.js để tạo hash hoặc sử dụng API đăng ký

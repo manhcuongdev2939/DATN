@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { authAPI, getToken, getAdminToken } from '../utils/api';
+import { authAPI, adminAPI, getToken, getAdminToken } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage({ onSuccess }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login, adminLogin } = useAuth();
   
   // Get email from URL params if coming from register page
   const urlParams = new URLSearchParams(location.search);
@@ -61,21 +63,25 @@ export default function LoginPage({ onSuccess }) {
     setLoading(true);
 
     try {
-      // Chọn API đăng nhập dựa trên loginType
-      const loginFunction = loginType === 'admin' 
-        ? authAPI.adminLogin 
-        : authAPI.login;
-
-      const result = await loginFunction(formData.Email, formData.Mat_khau);
+      let result;
+      // Sử dụng AuthContext để set state đúng cách
+      if (loginType === 'admin') {
+        result = await adminLogin(formData.Email, formData.Mat_khau);
+      } else {
+        result = await login(formData.Email, formData.Mat_khau);
+      }
+      
       // Đăng nhập thành công
       if (onSuccess) {
-        onSuccess(result.user);
+        onSuccess(result.user || result.admin);
       }
-      // Chuyển hướng đến trang admin dashboard nếu là admin, nếu không thì về trang chủ
+      // Chuyển hướng: preserve intended destination or go to default
+      const from = location.state?.from?.pathname;
       if (loginType === 'admin') {
-        navigate('/admin');
+        navigate(from || '/admin', { replace: true });
       } else {
-        navigate('/');
+        // For customer: redirect to intended page or home
+        navigate(from || '/', { replace: true });
       }
     } catch (err) {
       // Sửa lỗi: Đọc thông báo lỗi từ thuộc tính `message` của đối tượng Error
@@ -99,11 +105,33 @@ export default function LoginPage({ onSuccess }) {
               </svg>
             </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2 capitalize">
-              {loginType === 'admin' ? 'Admin Login' : 'Chào mừng trở lại'}
+              {loginType === 'admin' ? 'Đăng nhập Quản trị' : 'Chào mừng trở lại'}
             </h2>
             <p className="text-sm text-gray-600 capitalize">
-              Đăng nhập để tiếp tục mua sắm
+              {loginType === 'admin' ? 'Đăng nhập để quản lý hệ thống' : 'Đăng nhập để tiếp tục mua sắm'}
             </p>
+            
+            {/* Toggle between Customer and Admin login - chỉ hiển thị khi type=admin */}
+            {loginType === 'admin' && (
+              <div className="mt-4 flex items-center justify-center">
+                <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    className="px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900"
+                  >
+                    Khách hàng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login?type=admin')}
+                    className="px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-brand-600 shadow-sm"
+                  >
+                    Quản trị
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <form className="space-y-5" onSubmit={handleSubmit}>

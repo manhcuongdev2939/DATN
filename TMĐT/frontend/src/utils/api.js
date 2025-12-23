@@ -70,6 +70,15 @@ const getAdminToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
 const setAdminToken = (token) => localStorage.setItem(ADMIN_TOKEN_KEY, token);
 const removeAdminToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY);
 
+// Notify app to reset auth state when token becomes invalid (e.g. 401)
+const notifyAuthLogout = () => {
+  try {
+    window.dispatchEvent(new Event("auth-logout"));
+  } catch (_) {
+    /* no-op if window not available */
+  }
+};
+
 // --- Authenticated Fetch Wrappers ---
 
 const createAuthFetch =
@@ -83,6 +92,8 @@ const createAuthFetch =
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
+    } else {
+      console.warn(`No token found for request to ${url}`);
     }
 
     const response = await fetch(`${API_BASE}${url}`, {
@@ -93,6 +104,38 @@ const createAuthFetch =
     if (response.status === 401) {
       // Unauthorized, automatically remove the invalid token.
       tokenRemover();
+      notifyAuthLogout();
+    }
+
+    if (response.status === 403) {
+      // Forbidden - token invalid or expired
+      const errorText = await response
+        .clone()
+        .text()
+        .catch(() => "");
+      let errorMessage = "Không có quyền truy cập";
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData?.error || errorData?.message || errorMessage;
+      } catch (_) {
+        // Use default error message
+      }
+
+      // If it's an admin route and token is invalid, remove it
+      if (url.includes("/admin")) {
+        tokenRemover();
+        // Dispatch event to notify admin logout
+        try {
+          window.dispatchEvent(new Event("admin-logout"));
+        } catch (_) {
+          /* no-op if window not available */
+        }
+      }
+
+      // Throw error so calling code can handle it
+      const error = new Error(errorMessage);
+      error.status = 403;
+      throw error;
     }
 
     return response;
@@ -136,6 +179,16 @@ export const authAPI = {
     return data;
   },
 
+  verifyOtp: async (email, otp) => {
+    const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ Email: email, otp }),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
   requestOTP: async (email) => {
     const res = await fetch(`${API_BASE}/auth/request-otp`, {
       method: "POST",
@@ -169,8 +222,16 @@ export const authAPI = {
     return data;
   },
 
-  logout: () => {
-    removeToken();
+  logout: async () => {
+    try {
+      // Best-effort: call backend to revoke token
+      await authFetch("/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.warn("Failed to revoke token on server during logout", e);
+    } finally {
+      removeToken();
+      notifyAuthLogout();
+    }
   },
 
   getMe: async () => {
@@ -179,16 +240,12 @@ export const authAPI = {
     return data;
   },
 
-  adminLogin: async (email, password) => {
-    const res = await fetch(`${API_BASE}/auth/admin/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ Email: email, Mat_khau: password }),
+  updateProfile: async (profileData) => {
+    const res = await authFetch("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify(profileData),
     });
     const { data } = await parseJsonResponse(res);
-    if (data?.token) {
-      setAdminToken(data.token);
-    }
     return data;
   },
 };
@@ -213,12 +270,22 @@ export const productsAPI = {
   },
 };
 
-// Categories API
+// Categories API (with simple in-memory cache)
+let __cachedCategories = null;
 export const categoriesAPI = {
-  getAll: async () => {
+  getAll: async (force = false) => {
+    if (!force && __cachedCategories) {
+      return __cachedCategories;
+    }
+
     const res = await fetch(`${API_BASE}/categories`);
     const { data } = await parseJsonResponse(res);
+    __cachedCategories = data;
     return data;
+  },
+
+  clearCache: () => {
+    __cachedCategories = null;
   },
 
   getById: async (id) => {
@@ -298,8 +365,8 @@ export const ordersAPI = {
 
 // Payments API
 export const paymentsAPI = {
-  createPayosTransfer: async (orderId) => {
-    const res = await authFetch("/payments/payos/transfer", {
+  createPayOSPayment: async (orderId) => {
+    const res = await authFetch("/payments/payos/create", {
       method: "POST",
       body: JSON.stringify({ orderId }),
     });
@@ -333,7 +400,8 @@ export const wishlistAPI = {
   getAll: async () => {
     const res = await authFetch("/wishlist");
     const { data } = await parseJsonResponse(res);
-    return data;
+    // Backend returns { items: [...] } — normalize to array for callers
+    return data?.items || data?.wishlist || data || [];
   },
 
   add: async (productId) => {
@@ -359,7 +427,8 @@ export const addressesAPI = {
   getAll: async () => {
     const res = await authFetch("/addresses");
     const { data } = await parseJsonResponse(res);
-    return data;
+    // Backend returns { addresses: [...] } — normalize to array
+    return data?.addresses || data || [];
   },
 
   create: async (addressData) => {
@@ -424,7 +493,7 @@ export const newsletterAPI = {
 // Admin API
 export const adminAPI = {
   login: async (email, password) => {
-    const res = await fetch(`${API_BASE}/admin/login`, {
+    const res = await fetch(`${API_BASE}/auth/admin/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ Email: email, Mat_khau: password }),
@@ -432,14 +501,73 @@ export const adminAPI = {
     const { data } = await parseJsonResponse(res);
     if (data?.token) {
       setAdminToken(data.token);
+      console.log(
+        "Admin token saved:",
+        data.token ? "Token saved successfully" : "No token"
+      );
+    } else {
+      console.warn("Admin login response missing token:", data);
     }
     return data;
   },
 
+  logout: async () => {
+    try {
+      await adminAuthFetch("/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.warn("Failed to revoke admin token on server during logout", e);
+    } finally {
+      removeAdminToken();
+      try {
+        window.dispatchEvent(new Event("admin-logout"));
+      } catch (_) {}
+    }
+  },
+
   getSummary: async () => {
     const res = await adminAuthFetch(`/admin/summary`);
+    if (!res.ok) {
+      if (res.status === 403) {
+        throw new Error("Không có quyền truy cập. Vui lòng đăng nhập lại.");
+      }
+      throw new Error("Không thể tải dữ liệu");
+    }
     const { data } = await parseJsonResponse(res);
-    return data?.summary || {};
+    // Backend returns { success: true, data: { users, orders, products } }
+    return data || {};
+  },
+
+  getMonthlyRevenue: async () => {
+    const res = await adminAuthFetch(`/admin/analytics/monthly-revenue`);
+    const { data } = await parseJsonResponse(res);
+    return data?.monthlyRevenue || [];
+  },
+
+  getRevenueAnalytics: async (period = "7d") => {
+    const res = await adminAuthFetch(`/admin/analytics/revenue?period=${period}`);
+    if (!res.ok) {
+      throw new Error("Không thể tải dữ liệu doanh thu");
+    }
+    const { data } = await parseJsonResponse(res);
+    return data || { period, data: [] };
+  },
+
+  getTopProducts: async (limit = 10, period = "30d") => {
+    const res = await adminAuthFetch(`/admin/analytics/top-products?limit=${limit}&period=${period}`);
+    if (!res.ok) {
+      throw new Error("Không thể tải dữ liệu sản phẩm");
+    }
+    const { data } = await parseJsonResponse(res);
+    return data || { period, products: [] };
+  },
+
+  getOrderStats: async (period = "30d") => {
+    const res = await adminAuthFetch(`/admin/analytics/order-stats?period=${period}`);
+    if (!res.ok) {
+      throw new Error("Không thể tải thống kê đơn hàng");
+    }
+    const { data } = await parseJsonResponse(res);
+    return data || { period, stats: [] };
   },
 
   getUsers: async (params = {}) => {
@@ -447,6 +575,15 @@ export const adminAPI = {
     const res = await adminAuthFetch(`/admin/users${qs}`);
     const { data, meta } = await parseJsonResponse(res);
     return { users: data?.users || [], meta };
+  },
+
+  updateUser: async (id, userData) => {
+    const res = await adminAuthFetch(`/admin/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(userData),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
   },
 
   getOrders: async (params = {}) => {
@@ -487,6 +624,93 @@ export const adminAPI = {
     });
     const { data } = await parseJsonResponse(res);
     return data;
+  },
+
+  getOrderById: async (id) => {
+    const res = await adminAuthFetch(`/admin/orders/${id}`);
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
+  updateOrderStatus: async (id, status, note) => {
+    const res = await adminAuthFetch(`/admin/orders/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ Trang_thai: status, Ghi_chu: note }),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
+  getCategories: async () => {
+    const res = await adminAuthFetch("/admin/categories");
+    const { data } = await parseJsonResponse(res);
+    return data?.categories || [];
+  },
+
+  getMe: async () => {
+    const res = await adminAuthFetch("/admin/me");
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
+  bulkUpdateProductStatus: async (productIds, status) => {
+    const res = await adminAuthFetch("/admin/products/bulk-status", {
+      method: "PUT",
+      body: JSON.stringify({ productIds, Trang_thai: status }),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
+  bulkDeleteProducts: async (productIds) => {
+    const res = await adminAuthFetch("/admin/products/bulk", {
+      method: "DELETE",
+      body: JSON.stringify({ productIds }),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
+  exportOrders: async (params = {}) => {
+    const qs = buildQueryString(params);
+    const res = await adminAuthFetch(`/admin/orders/export${qs}`);
+    if (!res.ok) {
+      throw new Error("Không thể xuất dữ liệu");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const contentDisposition = res.headers.get("Content-Disposition");
+    const filename = contentDisposition
+      ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+      : `orders_export_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  exportProducts: async (params = {}) => {
+    const qs = buildQueryString(params);
+    const res = await adminAuthFetch(`/admin/products/export${qs}`);
+    if (!res.ok) {
+      throw new Error("Không thể xuất dữ liệu");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const contentDisposition = res.headers.get("Content-Disposition");
+    const filename = contentDisposition
+      ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+      : `products_export_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   },
 };
 

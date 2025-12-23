@@ -1,93 +1,103 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { authAPI, getToken } from '../utils/api';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import {
+  authAPI,
+  adminAPI,
+  getToken,
+  getAdminToken,
+  removeAdminToken,
+} from "../utils/api";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [admin, setAdmin] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-    useEffect(() => {
-        const checkUser = async () => {
-            setIsAuthLoading(true);
-            try {
-                // The getMe function will throw an error if the token is invalid, handled by the API layer
-                const data = await authAPI.getMe();
-                if (data.user) {
-                    setUser(data.user);
-                }
-            } catch (error) {
-                // Token is invalid or network error, user remains null
-                authAPI.logout(); // Ensure token is cleared
-                setUser(null);
-            } finally {
-                setIsAuthLoading(false);
-            }
-        };
-
-        // Only check user if a token exists
+  useEffect(() => {
+    const loadAuth = async () => {
+      try {
         if (getToken()) {
-            checkUser();
-        } else {
-            setIsAuthLoading(false);
+          const res = await authAPI.getMe();
+          setUser(res.user || null);
         }
-    }, []);
 
-    const login = async (email, password) => {
-        // The API function will throw on error, which should be caught in the UI component
-        const data = await authAPI.login(email, password);
-        if (data.user) {
-            setUser(data.user);
+        if (getAdminToken()) {
+          const res = await adminAPI.getMe();
+          setAdmin(res.admin || null);
         }
-        return data;
-    };
-    
-    const loginOTP = async (email, otp) => {
-        const data = await authAPI.loginOTP(email, otp);
-        if(data.user) {
-            setUser(data.user);
-        }
-        return data;
+      } catch {
+        removeAdminToken();
+        setAdmin(null);
+      } finally {
+        setIsAuthLoading(false);
+      }
     };
 
-    const register = async (userData) => {
-        const data = await authAPI.register(userData);
-        if (data.user) {
-            setUser(data.user);
-        }
-        return data;
-    };
+    loadAuth();
+  }, []);
 
-    const logout = () => {
-        authAPI.logout();
-        setUser(null);
-    };
-    
-    const updateUser = (updatedUserData) => {
-        setUser(prevUser => ({...prevUser, ...updatedUserData}));
+  const login = async (email, password) => {
+    const res = await authAPI.login(email, password);
+    if (res.user) setUser(res.user);
+    return res;
+  };
+
+  const logout = async () => {
+    await authAPI.logout();
+    setUser(null);
+  };
+
+  const adminLogin = async (email, password) => {
+    const res = await adminAPI.login(email, password);
+    // Normalize response: backend uses 'user' for admin login, but other endpoints expect 'admin'
+    const adminInfo = res?.admin || res?.user || null;
+
+    if (adminInfo) {
+      setAdmin(adminInfo);
+      return res;
     }
 
-    const value = {
+    // If login succeeded but no admin info returned, attempt to fetch it
+    try {
+      const me = await adminAPI.getMe();
+      setAdmin(me.admin || null);
+      return res;
+    } catch (err) {
+      // If fetching admin info fails, clear token and surface error to caller
+      removeAdminToken();
+      setAdmin(null);
+      throw err;
+    }
+  };
+
+  const adminLogout = async () => {
+    await adminAPI.logout();
+    removeAdminToken();
+    setAdmin(null);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
         user,
+        admin,
         isAuthLoading,
         login,
-        loginOTP,
-        register,
         logout,
-        updateUser,
-    };
-
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
+        adminLogin,
+        adminLogout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 };
+
+export { AuthContext };
