@@ -54,7 +54,11 @@ const parseJsonResponse = async (res) => {
     errorPayload?.message ||
     "Đã có lỗi xảy ra từ máy chủ.";
 
-  throw new Error(message);
+  // Throw a custom error object with more details
+  const error = new Error(message);
+  error.data = errorPayload;
+  error.status = res.status;
+  throw error;
 };
 
 // --- Token Management ---
@@ -350,14 +354,22 @@ export const ordersAPI = {
   },
 
   getAll: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await authFetch(`/orders?${query}`);
+    const queryString = buildQueryString(params);
+    const res = await authFetch(`/orders${queryString}`);
     const { data } = await parseJsonResponse(res);
     return data;
   },
 
   getById: async (id) => {
     const res = await authFetch(`/orders/${id}`);
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+
+  cancel: async (id) => {
+    const res = await authFetch(`/orders/${id}/cancel`, {
+      method: "PUT",
+    });
     const { data } = await parseJsonResponse(res);
     return data;
   },
@@ -370,6 +382,11 @@ export const paymentsAPI = {
       method: "POST",
       body: JSON.stringify({ orderId }),
     });
+    const { data } = await parseJsonResponse(res);
+    return data;
+  },
+  verifyPayment: async (orderId) => {
+    const res = await authFetch(`/payments/verify/${orderId}`);
     const { data } = await parseJsonResponse(res);
     return data;
   },
@@ -544,7 +561,9 @@ export const adminAPI = {
   },
 
   getRevenueAnalytics: async (period = "7d") => {
-    const res = await adminAuthFetch(`/admin/analytics/revenue?period=${period}`);
+    const res = await adminAuthFetch(
+      `/admin/analytics/revenue?period=${period}`
+    );
     if (!res.ok) {
       throw new Error("Không thể tải dữ liệu doanh thu");
     }
@@ -553,7 +572,9 @@ export const adminAPI = {
   },
 
   getTopProducts: async (limit = 10, period = "30d") => {
-    const res = await adminAuthFetch(`/admin/analytics/top-products?limit=${limit}&period=${period}`);
+    const res = await adminAuthFetch(
+      `/admin/analytics/top-products?limit=${limit}&period=${period}`
+    );
     if (!res.ok) {
       throw new Error("Không thể tải dữ liệu sản phẩm");
     }
@@ -562,7 +583,9 @@ export const adminAPI = {
   },
 
   getOrderStats: async (period = "30d") => {
-    const res = await adminAuthFetch(`/admin/analytics/order-stats?period=${period}`);
+    const res = await adminAuthFetch(
+      `/admin/analytics/order-stats?period=${period}`
+    );
     if (!res.ok) {
       throw new Error("Không thể tải thống kê đơn hàng");
     }
@@ -575,6 +598,15 @@ export const adminAPI = {
     const res = await adminAuthFetch(`/admin/users${qs}`);
     const { data, meta } = await parseJsonResponse(res);
     return { users: data?.users || [], meta };
+  },
+
+  createUser: async (userData) => {
+    const res = await adminAuthFetch(`/admin/users`, {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+    const { data } = await parseJsonResponse(res);
+    return data;
   },
 
   updateUser: async (id, userData) => {
@@ -679,15 +711,15 @@ export const adminAPI = {
   },
   createVoucher: async (voucherData) => {
     const res = await adminAuthFetch(`/admin/vouchers`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(voucherData),
     });
     const { data } = await parseJsonResponse(res);
     return data;
   },
   updateVoucher: async (id, voucherData) => {
-     const res = await adminAuthFetch(`/admin/vouchers/${id}`, {
-      method: 'PUT',
+    const res = await adminAuthFetch(`/admin/vouchers/${id}`, {
+      method: "PUT",
       body: JSON.stringify(voucherData),
     });
     const { data } = await parseJsonResponse(res);
@@ -695,7 +727,7 @@ export const adminAPI = {
   },
   deleteVoucher: async (id) => {
     const res = await adminAuthFetch(`/admin/vouchers/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
     const { data } = await parseJsonResponse(res);
     return data;
@@ -709,7 +741,7 @@ export const adminAPI = {
   },
   updateReviewStatus: async (id, status) => {
     const res = await adminAuthFetch(`/admin/reviews/${id}/status`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ status }),
     });
     const { data } = await parseJsonResponse(res);

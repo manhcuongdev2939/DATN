@@ -252,7 +252,6 @@ router.get("/analytics/top-products", async (req, res, next) => {
   }
 });
 
-
 // Update user (admin)
 router.put(
   "/users/:id",
@@ -886,6 +885,17 @@ router.put(
           );
         }
 
+        // Restore voucher if used
+        if (currentOrder.ID_Voucher) {
+          await connection.query(
+            "UPDATE voucher SET So_luong_su_dung_con_lai = So_luong_su_dung_con_lai + 1 WHERE ID_Voucher = ?",
+            [currentOrder.ID_Voucher]
+          );
+          try {
+            clearCategoriesCache(); // Re-using existing import or just skip cache clear if not critical
+          } catch (_) {}
+        }
+
         // Update payment status to refunded if payment exists
         await connection.query(
           "UPDATE thanh_toan SET Trang_thai = ? WHERE ID_Don_hang = ?",
@@ -1227,103 +1237,143 @@ router.get("/vouchers", async (req, res, next) => {
       ORDER BY v.Ngay_ket_thuc DESC
     `);
     return successResponse(res, vouchers);
-  } catch(error) {
+  } catch (error) {
     next(error);
   }
 });
 
-router.post("/vouchers", 
+router.post(
+  "/vouchers",
   [
-    body('Ma_voucher').isString().notEmpty().toUpperCase(),
-    body('Loai_giam_gia').isIn(['percentage', 'fixed']),
-    body('Gia_tri_giam').isDecimal(),
-    body('Don_hang_toi_thieu').isDecimal(),
-    body('So_luong').isNumeric(),
-    body('Ngay_bat_dau').isISO8601(),
-    body('Ngay_ket_thuc').isISO8601(),
-  ],
-  validateRequest,
-  async(req, res, next) => {
-  try {
-    // Maps frontend field names to database column names
-    const { Ma_voucher, Loai_giam_gia, Gia_tri_giam, Don_hang_toi_thieu, So_luong, Ngay_bat_dau, Ngay_ket_thuc } = req.body;
-    const [result] = await pool.query(
-      "INSERT INTO voucher (Ma_voucher, Loai_giam_gia, Gia_tri_giam, Gia_tri_toi_thieu, So_luong_su_dung_con_lai, Ngay_bat_dau, Ngay_ket_thuc) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [Ma_voucher, Loai_giam_gia, Gia_tri_giam, Don_hang_toi_thieu, So_luong, Ngay_bat_dau, Ngay_ket_thuc]
-    );
-    return successResponse(res, { id: result.insertId }, 201);
-  } catch(error) {
-    if (error.code === 'ER_DUP_ENTRY') {
-      return errorResponse(res, "Mã voucher này đã tồn tại.", 409);
-    }
-    next(error);
-  }
-});
-
-router.put("/vouchers/:id", 
-  [
-    body('Ma_voucher').isString().notEmpty().toUpperCase(),
-    body('Loai_giam_gia').isIn(['percentage', 'fixed']),
-    body('Gia_tri_giam').isDecimal(),
-    body('Don_hang_toi_thieu').isDecimal(),
-    body('So_luong').isNumeric(),
-    body('Ngay_bat_dau').isISO8601(),
-    body('Ngay_ket_thuc').isISO8601(),
+    body("Ma_voucher").isString().notEmpty().toUpperCase(),
+    body("Loai_giam_gia").isIn(["percentage", "fixed"]),
+    body("Gia_tri_giam").isDecimal(),
+    body("Don_hang_toi_thieu").isDecimal(),
+    body("So_luong").isNumeric(),
+    body("Ngay_bat_dau").isISO8601(),
+    body("Ngay_ket_thuc").isISO8601(),
   ],
   validateRequest,
   async (req, res, next) => {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    const { id } = req.params;
-    const { Ma_voucher, Loai_giam_gia, Gia_tri_giam, Don_hang_toi_thieu, So_luong, Ngay_bat_dau, Ngay_ket_thuc } = req.body;
-
-    // When updating, the frontend sends the *total* desired quantity.
-    // We need to calculate the new *remaining* quantity based on how many have been used.
-    const [[{ used_count }]] = await connection.query(
-      "SELECT COUNT(*) as used_count FROM don_hang WHERE ID_Voucher = ?",
-      [id]
-    );
-
-    const new_total_quantity = parseInt(So_luong, 10);
-    if (isNaN(new_total_quantity) || new_total_quantity < used_count) {
-      await connection.rollback();
-      connection.release();
-      return errorResponse(res, `Số lượng mới (${new_total_quantity}) không thể nhỏ hơn số lượng đã sử dụng (${used_count}).`, 400);
+    try {
+      // Maps frontend field names to database column names
+      const {
+        Ma_voucher,
+        Loai_giam_gia,
+        Gia_tri_giam,
+        Don_hang_toi_thieu,
+        So_luong,
+        Ngay_bat_dau,
+        Ngay_ket_thuc,
+      } = req.body;
+      const [result] = await pool.query(
+        "INSERT INTO voucher (Ma_voucher, Loai_giam_gia, Gia_tri_giam, Gia_tri_toi_thieu, So_luong_su_dung_con_lai, Ngay_bat_dau, Ngay_ket_thuc) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [
+          Ma_voucher,
+          Loai_giam_gia,
+          Gia_tri_giam,
+          Don_hang_toi_thieu,
+          So_luong,
+          Ngay_bat_dau,
+          Ngay_ket_thuc,
+        ]
+      );
+      return successResponse(res, { id: result.insertId }, 201);
+    } catch (error) {
+      if (error.code === "ER_DUP_ENTRY") {
+        return errorResponse(res, "Mã voucher này đã tồn tại.", 409);
+      }
+      next(error);
     }
-    
-    const new_remaining_quantity = new_total_quantity - used_count;
-
-    // Update the voucher with correct database column names
-    await connection.query(
-      "UPDATE voucher SET Ma_voucher = ?, Loai_giam_gia = ?, Gia_tri_giam = ?, Gia_tri_toi_thieu = ?, So_luong_su_dung_con_lai = ?, Ngay_bat_dau = ?, Ngay_ket_thuc = ? WHERE ID_Voucher = ?",
-      [Ma_voucher, Loai_giam_gia, Gia_tri_giam, Don_hang_toi_thieu, new_remaining_quantity, Ngay_bat_dau, Ngay_ket_thuc, id]
-    );
-
-    await connection.commit();
-    return successResponse(res, { message: "Cập nhật voucher thành công" });
-  } catch(error) {
-     await connection.rollback();
-     if (error.code === 'ER_DUP_ENTRY') {
-      return errorResponse(res, "Mã voucher này đã tồn tại.", 409);
-    }
-    next(error);
-  } finally {
-    if (connection) connection.release();
   }
-});
+);
+
+router.put(
+  "/vouchers/:id",
+  [
+    body("Ma_voucher").isString().notEmpty().toUpperCase(),
+    body("Loai_giam_gia").isIn(["percentage", "fixed"]),
+    body("Gia_tri_giam").isDecimal(),
+    body("Don_hang_toi_thieu").isDecimal(),
+    body("So_luong").isNumeric(),
+    body("Ngay_bat_dau").isISO8601(),
+    body("Ngay_ket_thuc").isISO8601(),
+  ],
+  validateRequest,
+  async (req, res, next) => {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      const { id } = req.params;
+      const {
+        Ma_voucher,
+        Loai_giam_gia,
+        Gia_tri_giam,
+        Don_hang_toi_thieu,
+        So_luong,
+        Ngay_bat_dau,
+        Ngay_ket_thuc,
+      } = req.body;
+
+      // When updating, the frontend sends the *total* desired quantity.
+      // We need to calculate the new *remaining* quantity based on how many have been used.
+      const [[{ used_count }]] = await connection.query(
+        "SELECT COUNT(*) as used_count FROM don_hang WHERE ID_Voucher = ?",
+        [id]
+      );
+
+      const new_total_quantity = parseInt(So_luong, 10);
+      if (isNaN(new_total_quantity) || new_total_quantity < used_count) {
+        await connection.rollback();
+        connection.release();
+        return errorResponse(
+          res,
+          `Số lượng mới (${new_total_quantity}) không thể nhỏ hơn số lượng đã sử dụng (${used_count}).`,
+          400
+        );
+      }
+
+      const new_remaining_quantity = new_total_quantity - used_count;
+
+      // Update the voucher with correct database column names
+      await connection.query(
+        "UPDATE voucher SET Ma_voucher = ?, Loai_giam_gia = ?, Gia_tri_giam = ?, Gia_tri_toi_thieu = ?, So_luong_su_dung_con_lai = ?, Ngay_bat_dau = ?, Ngay_ket_thuc = ? WHERE ID_Voucher = ?",
+        [
+          Ma_voucher,
+          Loai_giam_gia,
+          Gia_tri_giam,
+          Don_hang_toi_thieu,
+          new_remaining_quantity,
+          Ngay_bat_dau,
+          Ngay_ket_thuc,
+          id,
+        ]
+      );
+
+      await connection.commit();
+      return successResponse(res, { message: "Cập nhật voucher thành công" });
+    } catch (error) {
+      await connection.rollback();
+      if (error.code === "ER_DUP_ENTRY") {
+        return errorResponse(res, "Mã voucher này đã tồn tại.", 409);
+      }
+      next(error);
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+);
 
 router.delete("/vouchers/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
     await pool.query("DELETE FROM voucher WHERE ID_Voucher = ?", [id]);
     return successResponse(res, { message: "Voucher deleted" });
-  } catch(error) {
+  } catch (error) {
     next(error);
   }
 });
-
 
 // --- Review Management ---
 router.get("/reviews", async (req, res, next) => {
@@ -1336,26 +1386,28 @@ router.get("/reviews", async (req, res, next) => {
       ORDER BY r.Ngay_danh_gia DESC
     `);
     return successResponse(res, reviews);
-  } catch(error) {
+  } catch (error) {
     next(error);
   }
 });
 
-router.put("/reviews/:id/status", 
-  [
-    body('status').isIn(['approved', 'rejected', 'pending'])
-  ],
+router.put(
+  "/reviews/:id/status",
+  [body("status").isIn(["approved", "rejected", "pending"])],
   validateRequest,
   async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    await pool.query("UPDATE danh_gia_phan_hoi SET Trang_thai = ? WHERE ID_Danh_gia = ?", [status, id]);
-    return successResponse(res, { message: "Review status updated" });
-  } catch(error) {
-    next(error);
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      await pool.query(
+        "UPDATE danh_gia_phan_hoi SET Trang_thai = ? WHERE ID_Danh_gia = ?",
+        [status, id]
+      );
+      return successResponse(res, { message: "Review status updated" });
+    } catch (error) {
+      next(error);
+    }
   }
-});
-
+);
 
 export default router;

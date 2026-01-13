@@ -65,6 +65,7 @@ export default function DashboardCharts({
   orderStats,
   topProducts,
   loading,
+  period,
 }) {
   if (loading) {
     return (
@@ -87,12 +88,16 @@ export default function DashboardCharts({
       color: COLORS[stat.Trang_thai] || "#CCCCCC",
     }));
 
+  const periodText = `(${
+    period === "7d" ? "7" : period === "90d" ? "90" : "30"
+  } ngày qua)`;
+
   return (
     <div className="mt-8 grid grid-cols-1 lg:grid-cols-5 gap-8">
       {/* Revenue Chart */}
       <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Phân tích doanh thu (30 ngày qua)
+          Phân tích doanh thu {periodText}
         </h3>
         {revenueData && revenueData.data && revenueData.data.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
@@ -132,9 +137,9 @@ export default function DashboardCharts({
       </div>
 
       {/* Order Stats Chart */}
-      <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border">
+      {/* <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Tỷ lệ trạng thái đơn hàng (30 ngày qua)
+          Tỷ lệ trạng thái đơn hàng {periodText}
         </h3>
         {pieData && pieData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
@@ -170,12 +175,12 @@ export default function DashboardCharts({
             Không có dữ liệu trạng thái đơn hàng.
           </div>
         )}
-      </div>
+      </div> */}
 
       {/* Top Selling Products */}
       <div className="lg:col-span-5 bg-white p-6 rounded-lg shadow-sm border">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Top 5 sản phẩm bán chạy (30 ngày qua)
+          Top 5 sản phẩm bán chạy {periodText}
         </h3>
         {topProducts &&
         topProducts.products &&

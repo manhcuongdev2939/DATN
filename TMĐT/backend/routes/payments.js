@@ -3,7 +3,7 @@ import express from "express";
 import pool from "../db.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { successResponse, errorResponse } from "../utils/response.js";
-import { createPaymentLink } from "../services/payosService.js";
+import { createPaymentLink, verifyWebhook } from "../services/payosService.js";
 
 const router = express.Router();
 
@@ -41,7 +41,7 @@ router.post("/payos/create", authenticateToken, async (req, res) => {
       orderCode: Number(orderId),
       amount: Math.round(Number(amount)),
       description: `Thanh toan don hang ${orderId}`,
-      cancelUrl: `${clientUrl}/order-cancel/${orderId}`,
+      cancelUrl: `${clientUrl}/order-payment-status?orderId=${orderId}&status=cancelled`,
       returnUrl: `${clientUrl}/order-success/${orderId}`,
     };
 
@@ -58,8 +58,73 @@ router.post("/payos/create", authenticateToken, async (req, res) => {
       return errorResponse(res, "Failed to create PayOS payment request", 500);
     }
   } catch (err) {
-    console.error("PayOS payment creation error:", err);
+    console.error("PayOS payment creation error (full error object):", err);
     return errorResponse(res, err.message || "Internal server error", 500);
+  }
+});
+
+// POST /api/payments/payos/webhook
+router.post("/payos/webhook", async (req, res) => {
+  const signature = req.headers["payos-signature"];
+  // The webhook body is the data object from PayOS
+  const webhookBody = req.body;
+
+  if (!signature) {
+    console.error("[PayOS Webhook] Error: Missing signature header");
+    return res.status(400).json({ error: "Missing signature" });
+  }
+
+  try {
+    const isValid = verifyWebhook(webhookBody, signature);
+
+    if (!isValid) {
+      console.error("[PayOS Webhook] Error: Invalid signature");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    const { orderCode, status } = webhookBody;
+
+    console.log(
+      `[PayOS Webhook] Received for order ${orderCode} with status ${status}`
+    );
+
+    let newStatus;
+    if (status === "PAID") {
+      newStatus = "processing";
+    } else if (status === "CANCELLED") {
+      newStatus = "cancelled";
+    } else {
+      console.log(
+        `[PayOS Webhook] Unhandled status "${status}" for order ${orderCode}`
+      );
+      // Still acknowledge the webhook
+      return res
+        .status(200)
+        .json({ message: "Webhook received, status not handled" });
+    }
+
+    // Update the order status in the database
+    const [result] = await pool.query(
+      "UPDATE don_hang SET Trang_thai = ? WHERE ID_Don_hang = ?",
+      [newStatus, orderCode]
+    );
+
+    if (result.affectedRows === 0) {
+      console.error(
+        `[PayOS Webhook] Error: Order with ID ${orderCode} not found.`
+      );
+      // Still return 200 so PayOS doesn't retry. The issue is on our side.
+    } else {
+      console.log(
+        `[PayOS Webhook] Order ${orderCode} status updated to ${newStatus}`
+      );
+    }
+
+    // Acknowledge receipt to PayOS
+    return res.status(200).json({ message: "Webhook processed successfully" });
+  } catch (error) {
+    console.error("[PayOS Webhook] Error processing webhook:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

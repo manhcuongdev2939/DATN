@@ -11,6 +11,12 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT || 10),
   queueLimit: 0,
+  multipleStatements: true,
+});
+pool.on("connection", (connection) => {
+  connection.query("SET sql_mode = ''"); // tắt hết strict mode
+  // hoặc cụ thể hơn: bỏ chỉ TRUNCATED warning
+  // connection.query("SET sql_mode = REPLACE(@@sql_mode, 'STRICT_TRANS_TABLES', '')");
 });
 
 const MAX_RETRIES = Number(process.env.DB_MAX_RETRIES || 5);

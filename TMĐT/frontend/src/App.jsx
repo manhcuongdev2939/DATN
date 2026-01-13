@@ -14,7 +14,8 @@ import CartModal from "./components/CartModal";
 import ProductDetail from "./components/ProductDetail";
 import Checkout from "./components/Checkout";
 import Orders from "./components/Orders";
-import OrderSuccess from "./components/OrderSuccess";
+import OrderPaymentStatus from "./components/OrderPaymentStatus";
+import OrderCancel from "./components/OrderCancel";
 import UserDashboard from "./components/UserDashboard";
 import SearchResults from "./components/SearchResults";
 import LoginPage from "./components/LoginPage";
@@ -26,6 +27,8 @@ import CategoryPage from "./components/CategoryPage";
 import CartPage from "./components/CartPage";
 import AdminLoginPage from "./components/AdminLoginPage";
 import AdminDashboard from "./components/AdminDashboard";
+import OrderSuccess from "./components/OrderSuccess";
+import OrderDetailPage from "./components/OrderDetailPage";
 
 import Header from "./components/Header";
 import HeroCarousel from "./components/HeroCarousel";
@@ -977,6 +980,14 @@ export default function App() {
             }
           />
           <Route
+            path="/order-success/:id"
+            element={
+              <RequireAuth>
+                <OrderSuccess />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/orders"
             element={
               <RequireAuth>
@@ -984,7 +995,16 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/order-success/:id" element={<OrderSuccess />} />
+          <Route
+            path="/orders/:id"
+            element={
+              <RequireAuth>
+                <OrderDetailPage />
+              </RequireAuth>
+            }
+          />
+          <Route path="/order-payment-status" element={<OrderPaymentStatus />} />
+          <Route path="/order-cancel/:id" element={<OrderCancel />} />
           <Route
             path="/dashboard"
             element={

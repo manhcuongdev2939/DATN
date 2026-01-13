@@ -17,10 +17,6 @@ router.get("/", authenticateToken, async (req, res) => {
     );
 
     if (carts.length === 0) {
-      // Tạo giỏ hàng nếu chưa có
-      await pool.query("INSERT INTO gio_hang (ID_Khach_hang) VALUES (?)", [
-        userId,
-      ]);
       return successResponse(res, { items: [], total: 0 });
     }
 
@@ -189,7 +185,9 @@ router.put("/update/:id", authenticateToken, async (req, res) => {
       return errorResponse(res, "Sản phẩm đã ngừng kinh doanh", 400);
     }
 
-    if (quantity > items[0].So_luong_ton_kho) {
+    const diff = quantity - items[0].So_luong;
+
+    if (diff > 0 && diff > items[0].So_luong_ton_kho) {
       await connection.rollback();
       return errorResponse(res, "Số lượng vượt quá tồn kho", 400);
     }

@@ -5,6 +5,7 @@ import {
   getToken,
   getAdminToken,
   removeAdminToken,
+  removeToken,
 } from "../utils/api";
 
 const AuthContext = createContext(null);
@@ -16,22 +17,31 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const loadAuth = async () => {
-      try {
-        if (getToken()) {
+      // Load customer auth
+      if (getToken()) {
+        try {
           const res = await authAPI.getMe();
           setUser(res.user || null);
+        } catch (err) {
+          // Token invalid, remove it
+          removeToken();
+          setUser(null);
         }
+      }
 
-        if (getAdminToken()) {
+      // Load admin auth
+      if (getAdminToken()) {
+        try {
           const res = await adminAPI.getMe();
           setAdmin(res.admin || null);
+        } catch (err) {
+          // Token invalid, remove it
+          removeAdminToken();
+          setAdmin(null);
         }
-      } catch {
-        removeAdminToken();
-        setAdmin(null);
-      } finally {
-        setIsAuthLoading(false);
       }
+
+      setIsAuthLoading(false);
     };
 
     loadAuth();

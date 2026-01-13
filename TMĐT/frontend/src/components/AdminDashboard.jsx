@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import DashboardCharts from "./DashboardCharts";
 import VoucherManagement from "./VoucherManagement";
 import ReviewManagement from "./ReviewManagement";
+import { useDashboardData } from "../hooks/useDashboardData";
 
 // Debounce utility function
 const useDebounce = (value, delay) => {
@@ -29,9 +30,7 @@ const useDebounce = (value, delay) => {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { adminLogout } = useAuth();
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { summary, loading, error, refreshSummary } = useDashboardData();
   const [activeTab, setActiveTab] = useState("dashboard");
 
   // Products state
@@ -76,6 +75,7 @@ export default function AdminDashboard() {
   const [orderStats, setOrderStats] = useState(null);
   const [topProducts, setTopProducts] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState("30d");
 
   useEffect(() => {
     const adminToken = getAdminToken();
@@ -84,43 +84,12 @@ export default function AdminDashboard() {
       return;
     }
 
-    let isMounted = true;
-    const fetchSummary = async () => {
-      try {
-        const data = await adminAPI.getSummary();
-        if (isMounted) {
-          setSummary(data);
-        }
-      } catch (err) {
-        if (!isMounted) return;
-        if (
-          err.message?.includes("quyền") ||
-          err.message?.includes("đăng nhập") ||
-          err.message?.includes("403")
-        ) {
-          removeAdminToken();
-          adminLogout();
-          navigate("/admin/login");
-          return;
-        }
-        setError(err.message || "Không thể tải dữ liệu");
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-    fetchSummary();
-
     const handleAdminLogout = () => {
-      if (isMounted) {
-        navigate("/admin/login");
-      }
+      navigate("/admin/login");
     };
     window.addEventListener("admin-logout", handleAdminLogout);
 
     return () => {
-      isMounted = false;
       window.removeEventListener("admin-logout", handleAdminLogout);
     };
   }, [navigate, adminLogout]);
@@ -289,9 +258,9 @@ export default function AdminDashboard() {
         setAnalyticsLoading(true);
         try {
           const [revenue, stats, products] = await Promise.all([
-            adminAPI.getRevenueAnalytics("30d"),
-            adminAPI.getOrderStats("30d"),
-            adminAPI.getTopProducts(5, "30d"),
+            adminAPI.getRevenueAnalytics(analyticsPeriod),
+            adminAPI.getOrderStats(analyticsPeriod),
+            adminAPI.getTopProducts(5, analyticsPeriod),
           ]);
           setRevenueData(revenue);
           setOrderStats(stats);
@@ -305,7 +274,7 @@ export default function AdminDashboard() {
       };
       fetchAnalytics();
     }
-  }, [activeTab]);
+  }, [activeTab, analyticsPeriod]);
 
   const handleLogout = async () => {
     await adminAPI.logout();
@@ -368,9 +337,9 @@ export default function AdminDashboard() {
 
       // Refresh summary data
       try {
-        const data = await adminAPI.getSummary();
-        setSummary(data);
+        await refreshSummary();
       } catch (summaryErr) {
+        // Silent fail for summary refresh
         console.error("Failed to refresh summary:", summaryErr);
       }
     } catch (err) {
@@ -405,9 +374,9 @@ export default function AdminDashboard() {
       const abortController = new AbortController();
       await loadProducts(abortController.signal);
       try {
-        const data = await adminAPI.getSummary();
-        setSummary(data);
+        await refreshSummary();
       } catch (summaryErr) {
+        // Silent fail for summary refresh
         console.error("Failed to refresh summary:", summaryErr);
       }
     } catch (err) {
@@ -436,9 +405,9 @@ export default function AdminDashboard() {
       const abortController = new AbortController();
       await loadProducts(abortController.signal);
       try {
-        const data = await adminAPI.getSummary();
-        setSummary(data);
+        await refreshSummary();
       } catch (summaryErr) {
+        // Silent fail for summary refresh
         console.error("Failed to refresh summary:", summaryErr);
       }
     } catch (err) {
@@ -476,9 +445,9 @@ export default function AdminDashboard() {
       setSelectedOrder(null);
       loadOrders(null);
       try {
-        const data = await adminAPI.getSummary();
-        setSummary(data);
+        await refreshSummary();
       } catch (summaryErr) {
+        // Silent fail for summary refresh
         console.error("Failed to refresh summary:", summaryErr);
       }
     } catch (err) {
@@ -556,7 +525,7 @@ export default function AdminDashboard() {
       cancelled: "Đã hủy",
       returned: "Đã trả hàng",
       active: "Hoạt động",
-      inactive: "Ngừng kinh doanh",
+      inactive: "Ngừng hoạt động",
       out_of_stock: "Hết hàng",
     };
     return texts[status] || status;
@@ -582,10 +551,17 @@ export default function AdminDashboard() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <h1 className="text-2xl font-bold text-gray-900">Trang quản trị</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Quản trị viên</h1>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
-                {["dashboard", "products", "orders", "users", "vouchers", "reviews"].map((tab) => (
+                {[
+                  "dashboard",
+                  "products",
+                  "orders",
+                  "users",
+                  "vouchers",
+                  "reviews",
+                ].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -634,9 +610,31 @@ export default function AdminDashboard() {
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && summary && (
           <div>
-            <h2 className="text-xl font-semibold mb-6 text-gray-900">
-              Tổng quan hệ thống
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Tổng quan hệ thống
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-600">
+                  Xem theo:
+                </span>
+                {["7d", "30d", "90d"].map((period) => (
+                  <button
+                    key={period}
+                    onClick={() => setAnalyticsPeriod(period)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      analyticsPeriod === period
+                        ? "bg-brand-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                    }`}
+                  >
+                    {period === "7d" && "7 ngày"}
+                    {period === "30d" && "30 ngày"}
+                    {period === "90d" && "90 ngày"}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Revenue KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -866,6 +864,7 @@ export default function AdminDashboard() {
               revenueData={revenueData}
               orderStats={orderStats}
               topProducts={topProducts}
+              period={analyticsPeriod}
             />
           </div>
         )}
@@ -953,7 +952,7 @@ export default function AdminDashboard() {
                 >
                   <option value="">Tất cả trạng thái</option>
                   <option value="active">Hoạt động</option>
-                  <option value="inactive">Ngừng kinh doanh</option>
+                  <option value="inactive">Ngừng hoạt động</option>
                   <option value="out_of_stock">Hết hàng</option>
                 </select>
                 <button
@@ -1350,9 +1349,20 @@ export default function AdminDashboard() {
         {/* Users Tab */}
         {activeTab === "users" && (
           <div>
-            <h2 className="text-xl font-semibold mb-6 text-gray-900">
-              Quản lý người dùng
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Quản lý người dùng
+              </h2>
+              <button
+                onClick={() => {
+                  setEditingUser(null);
+                  setShowUserModal(true);
+                }}
+                className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+              >
+                + Thêm người dùng
+              </button>
+            </div>
             {usersLoading ? (
               <LoadingSpinner />
             ) : (
@@ -1640,7 +1650,7 @@ function ProductModal({ product, categories, onClose, onSave }) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
               <option value="active">Hoạt động</option>
-              <option value="inactive">Ngừng kinh doanh</option>
+              <option value="inactive">Ngừng hoạt động</option>
               <option value="out_of_stock">Hết hàng</option>
             </select>
           </div>

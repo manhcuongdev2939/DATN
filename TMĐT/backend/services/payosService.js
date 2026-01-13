@@ -26,7 +26,7 @@ async function createPaymentLink(orderData) {
     !PAYOS_API_URL
   ) {
     throw new Error(
-      "Missing PayOS configuration. Ensure PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY and PAYOS_API_URL are set"
+      "PayOS environment variables are not set. Please check your .env file for PAYOS_CLIENT_ID, PAYOS_API_KEY, and PAYOS_CHECKSUM_KEY."
     );
   }
 

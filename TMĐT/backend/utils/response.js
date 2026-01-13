@@ -6,13 +6,10 @@ export const successResponse = (res, data = {}, meta = {}, status = 200) => {
   });
 };
 
-export const errorResponse = (res, message, status = 500, details) => {
+export const errorResponse = (res, message, status = 500) => {
   return res.status(status).json({
     success: false,
-    error: {
-      message,
-      ...(details ? { details } : {}),
-    },
+    message,
   });
 };
 
@@ -26,4 +23,3 @@ export const buildPagination = ({ page, limit, total }) => {
     totalPages: safeLimit > 0 ? Math.ceil(total / safeLimit) : 0,
   };
 };
-
