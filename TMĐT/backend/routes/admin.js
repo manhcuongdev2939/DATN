@@ -835,7 +835,7 @@ router.put(
       const { id } = req.params;
       const { Trang_thai, Ghi_chu } = req.body;
 
-      // Get current order
+      // lấy trạng thái hiện tại của đơn hàng
       const [orders] = await connection.query(
         "SELECT * FROM don_hang WHERE ID_Don_hang = ? FOR UPDATE",
         [id]
